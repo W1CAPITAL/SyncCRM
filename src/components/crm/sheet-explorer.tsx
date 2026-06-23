@@ -27,24 +27,17 @@ import { useUser, googleProvider, useAuth } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { signInWithPopup, signOut, GoogleAuthProvider } from "firebase/auth";
 import { parse, isBefore, startOfDay, isValid } from "date-fns";
-import { Card, CardContent } from "../ui/card";
 
 const DEFAULT_SPREADSHEET_ID = "1JHiy3SbHRd5di5U9Zx4yvKrCSKtaOnFQdiZo0RDY9O0";
 const COLUMN_WIDTH = 220;
 
-const IDX_ADV = 0;    // Col A
-const IDX_OFFICE = 1; // Col B
-const IDX_STATUS = 2; // Col C
-const IDX_CLIENT = 3; // Col D
-const IDX_PROX = 13;  // Col N
-const IDX_PROC = 5;   // Col F
-
-const TJ_MAP: Record<string, string> = {
-  "01": "AC", "02": "AL", "03": "AM", "04": "AP", "05": "BA", "06": "CE", "07": "DF",
-  "08": "ES", "09": "GO", "10": "MA", "11": "MT", "12": "MS", "13": "MG", "14": "PA",
-  "15": "PB", "16": "PR", "17": "PE", "18": "PI", "19": "RJ", "20": "RN", "21": "RS",
-  "22": "RO", "23": "RR", "24": "SC", "25": "SE", "26": "SP", "27": "TO",
-};
+// MAPEAMENTO DEFINITIVO
+const IDX_ADV = 0;    // Col A (Responsável)
+const IDX_OFFICE = 1; // Col B (Escritório)
+const IDX_STATUS = 2; // Col C (Status)
+const IDX_CLIENT = 3; // Col D (Cliente)
+const IDX_PROX = 13;  // Col N (Próximo)
+const IDX_PROC = 5;   // Col F (Processo/Tribunal)
 
 const parseCSV = (csvText: string) => {
   const result = [];
@@ -73,17 +66,23 @@ const parseCSV = (csvText: string) => {
 };
 
 export const handleWhatsAppAction = (row: any, headers: string[]) => {
-  const telIdx = headers.findIndex(h => h.toUpperCase().includes("TELEFONE") || h.toUpperCase().includes("CELULAR") || h.toUpperCase().includes("WHATSAPP"));
+  // Busca telefone em colunas prováveis
+  const telIdx = headers.findIndex(h => {
+    const head = h.toUpperCase();
+    return head.includes("TELEFONE") || head.includes("CELULAR") || head.includes("WHATSAPP") || head.includes("TEL");
+  });
+  
   const clientName = String(row[`col_${IDX_CLIENT}`] || "Cliente");
-  const phone = String(row[`col_${telIdx}`] || "").replace(/\D/g, "");
-
-  if (!phone) {
-    alert("Telefone não encontrado.");
+  const phoneRaw = String(telIdx !== -1 ? row[`col_${telIdx}`] : "").replace(/\D/g, "");
+  
+  if (!phoneRaw) {
+    alert("Telefone não identificado para este cliente.");
     return;
   }
 
-  const msg = encodeURIComponent(`Olá ${clientName.toUpperCase()}, tudo bem? Gostaríamos de falar sobre o seu processo.`);
-  window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
+  const phone = phoneRaw.startsWith('55') ? phoneRaw : `55${phoneRaw}`;
+  const msg = encodeURIComponent(`Olá ${clientName.toUpperCase()}, tudo bem? Gostaríamos de conversar sobre o andamento do seu processo.`);
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
 };
 
 const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: { 
@@ -103,7 +102,7 @@ const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: {
   const isEncerrado = valUpper.includes("ENCERRADO") || valUpper.includes("ARQUIVADO");
   
   let isAtrasadoData = false;
-  if (isProx && value && value !== "0") {
+  if (isProx && value && value !== "0" && value.includes("/")) {
     try {
       const today = startOfDay(new Date());
       const date = parse(value.trim(), 'dd/MM/yyyy', new Date());
@@ -177,7 +176,6 @@ export function SheetExplorer() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterLawyer, setFilterLawyer] = useState("all");
-  const [filterState, setFilterState] = useState("all");
   
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -291,18 +289,16 @@ export function SheetExplorer() {
 
     if (filterStatus !== "all") {
       rows = rows.filter(row => {
-        const status = String(row[`col_${IDX_STATUS}`] || "").toUpperCase();
-        const prox = String(row[`col_${IDX_PROX}`] || "").trim();
+        const st = String(row[`col_${IDX_STATUS}`] || "").toUpperCase();
+        const px = String(row[`col_${IDX_PROX}`] || "").trim();
         if (filterStatus === "vencido") {
-          if (!prox || prox === "0") return false;
           try {
-            const date = parse(prox, 'dd/MM/yyyy', new Date());
+            const date = parse(px, 'dd/MM/yyyy', new Date());
             return isValid(date) && isBefore(date, today);
           } catch { return false; }
         }
-        if (filterStatus === "encerrado") return status.includes("ENCERRADO") || status.includes("ARQUIVADO");
-        if (filterStatus === "em_dia") return !status.includes("ENCERRADO");
-        return true;
+        if (filterStatus === "encerrado") return st.includes("ENCERRADO") || st.includes("ARQUIVADO");
+        return !st.includes("ENCERRADO");
       });
     }
 
@@ -310,16 +306,8 @@ export function SheetExplorer() {
       rows = rows.filter(row => String(row[`col_${IDX_ADV}`] || "").toUpperCase() === filterLawyer);
     }
 
-    if (filterState !== "all") {
-      rows = rows.filter(row => {
-        const proc = String(row[`col_${IDX_PROC}`] || "");
-        const match = proc.match(/\.8\.(\d{2})\./);
-        return match && match[1] === filterState;
-      });
-    }
-
     return rows;
-  }, [sheetData, searchQuery, filterStatus, filterLawyer, filterState]);
+  }, [sheetData, searchQuery, filterStatus, filterLawyer]);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredRows.length,
@@ -346,7 +334,7 @@ export function SheetExplorer() {
                   { id: 'operations', icon: FileSpreadsheet, label: 'Casos (Operação)' },
                   { id: 'prazos', icon: Clock, label: 'Controle de Prazos' },
                   { id: 'reports', icon: BarChart3, label: 'BI Executivo' },
-                  { id: 'docs', icon: FileArchive, label: 'Documentos Digital' },
+                  { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
                   { id: 'settings', icon: Settings, label: 'Configurações' },
                 ].map((item) => (
                   <SidebarMenuButton key={item.id} isActive={view === item.id} onClick={() => setView(item.id as any)} className="text-white hover:bg-zinc-900 data-[active=true]:bg-primary font-medium">
@@ -363,7 +351,7 @@ export function SheetExplorer() {
                 <SidebarTrigger />
                 <div className="h-6 w-px bg-zinc-200" />
                 <Badge variant="outline" className={cn("text-[10px] font-black uppercase", user ? "text-green-600 border-green-200" : "text-zinc-400")}>
-                  {user ? `👤 ${user.displayName?.toUpperCase()}` : "MODO PÚBLICO"}
+                  {user ? `👤 ${user.displayName?.toUpperCase()}` : "ACESSO PÚBLICO"}
                 </Badge>
               </div>
               <div className="flex items-center gap-3">
@@ -377,23 +365,35 @@ export function SheetExplorer() {
 
             <main className="flex-1 relative bg-zinc-50 overflow-hidden">
               {view === 'dashboard' ? (
-                <DashboardView data={sheetData?.rows || []} headers={sheetData?.headers || []} onWhatsApp={handleWhatsAppAction} onReschedule={setSelectedRow} />
+                <DashboardView 
+                  data={sheetData?.rows || []} 
+                  headers={sheetData?.headers || []} 
+                  onWhatsApp={handleWhatsAppAction} 
+                  onReschedule={setSelectedRow}
+                  onNavigateToReports={() => setView('reports')}
+                />
               ) : view === 'reports' ? (
                 <ReportsView data={sheetData?.rows || []} headers={sheetData?.headers || []} />
               ) : view === 'prazos' ? (
-                <DeadlinesView data={sheetData?.rows || []} headers={sheetData?.headers || []} onEdit={handleCellEdit} onWhatsApp={handleWhatsAppAction} onReschedule={setSelectedRow} />
+                <DeadlinesView 
+                  data={sheetData?.rows || []} 
+                  headers={sheetData?.headers || []} 
+                  onEdit={handleCellEdit} 
+                  onWhatsApp={handleWhatsAppAction} 
+                  onReschedule={setSelectedRow} 
+                />
               ) : view === 'docs' ? (
                 <DocumentsView data={sheetData?.rows || []} headers={sheetData?.headers || []} />
               ) : view === 'settings' ? (
                 <div className="h-full p-8 overflow-y-auto">
                   <div className="max-w-2xl mx-auto space-y-8">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter">Configurações</h2>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Ajustes da Conexão</h2>
                     <Card><CardContent className="pt-6 space-y-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-zinc-400">ID da Planilha</Label>
+                        <Label className="text-[10px] font-black uppercase text-zinc-400">ID da Google Sheet</Label>
                         <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} className="font-mono text-xs" />
                       </div>
-                      <Button className="w-full bg-zinc-900" onClick={() => handleCheckStructure()}>ATUALIZAR CONEXÃO</Button>
+                      <Button className="w-full bg-zinc-900 text-white font-bold" onClick={() => handleCheckStructure()}>TESTAR CONEXÃO</Button>
                     </CardContent></Card>
                   </div>
                 </div>
@@ -403,10 +403,10 @@ export function SheetExplorer() {
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Filtrar base de dados..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Buscar na base..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                       </div>
                       <Button variant="outline" size="sm" className="h-9 text-[11px] font-bold" onClick={() => fetchTabData(activeTabName)}>
-                        <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isCheckingSync && "animate-spin")} /> ATUALIZAR
+                        <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isCheckingSync && "animate-spin")} /> SINCRONIZAR
                       </Button>
                     </div>
                   </div>
@@ -431,9 +431,9 @@ export function SheetExplorer() {
 
                   <footer className="h-10 bg-zinc-900 border-t flex items-center px-2 shrink-0">
                     {availableTabs.map((tab) => (
-                      <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 uppercase tracking-widest", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400")}>{tab.name}</button>
+                      <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 uppercase tracking-widest", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-800")}>{tab.name}</button>
                     ))}
-                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase">{filteredRows.length} Registros</div>
+                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase">{filteredRows.length} Casos Encontrados</div>
                   </footer>
                 </div>
               )}
@@ -443,12 +443,12 @@ export function SheetExplorer() {
           <Sheet open={!!selectedRow} onOpenChange={(o) => !o && setSelectedRow(null)}>
             <SheetContent className="sm:max-w-[500px] flex flex-col p-0 border-l-4 border-l-primary">
               <SheetHeader className="p-8 bg-zinc-50 border-b shrink-0">
-                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Edição de Caso</SheetTitle>
+                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Gestão do Caso</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-8 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <Button variant="outline" className="h-12 border-2 border-green-600 text-green-600 font-black text-[10px] uppercase" onClick={() => handleWhatsAppAction(selectedRow, sheetData?.headers || [])}>WhatsApp</Button>
-                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>Concluir</Button>
+                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>Encerrar Caso</Button>
                 </div>
                 <hr className="my-6" />
                 {sheetData?.headers.map((h, i) => (
