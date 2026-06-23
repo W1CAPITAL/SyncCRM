@@ -14,8 +14,8 @@ interface DeadlinesViewProps {
   data: any[];
   headers: string[];
   indices: SheetIndices;
-  onEdit: (rowObj: any, c: number, v: string) => void;
-  onWhatsApp: (row: any, headers: string[]) => void;
+  onEdit: (rowObj: any, colIdx: number, value: string) => void;
+  onWhatsApp: (row: any) => void;
   onReschedule: (row: any) => void;
 }
 
@@ -112,7 +112,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                   </div>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full text-green-600 border-green-100" onClick={() => onWhatsApp(item, headers)}>
+                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full text-green-600 border-green-100" onClick={() => onWhatsApp(item)}>
                     <MessageSquare className="h-3.5 w-3.5" />
                   </Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold flex-1" onClick={() => onReschedule(item)}>

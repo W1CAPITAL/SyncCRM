@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -10,9 +11,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { 
   Database, RefreshCw, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
-  BarChart3, FileArchive, Settings, LogIn, Loader2, Search, Filter, AlertCircle
+  BarChart3, FileArchive, Settings, LogIn, Loader2, Search, Filter, AlertCircle,
+  MessageSquare, Edit2, CheckCircle, Save
 } from "lucide-react";
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
@@ -33,6 +36,7 @@ export interface SheetIndices {
   process: number;
   suspended: number;
   nextDate: number;
+  phone: number;
 }
 
 const ALIASES = {
@@ -42,6 +46,7 @@ const ALIASES = {
   status: ["status", "situação", "situacao", "fase", "andamento", "estado", "etapa", "decisão"],
   suspended: ["suspenso", "suspensão", "suspensao", "paralisado", "pausado", "sobrestado", "alerta", "parado"],
   office: ["escritório", "escritorio", "empresa", "parceiro", "unidade", "filial", "office", "tribunal", "comarca"],
+  phone: ["telefone", "celular", "whats", "whatsapp", "fone", "contato", "mobile", "phone"]
 };
 
 const TJ_MAP: Record<string, string> = {
@@ -106,8 +111,12 @@ export function SheetExplorer() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
   
+  // Modal de Edição
+  const [editingRow, setEditingRow] = useState<any | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  
   const indices = useMemo((): SheetIndices => {
-    if (!sheetData?.headers) return { lawyer: 0, office: 1, status: 2, client: 3, process: 5, suspended: 7, nextDate: 0 };
+    if (!sheetData?.headers) return { lawyer: 0, office: 1, status: 2, client: 3, process: 5, suspended: 7, nextDate: 0, phone: -1 };
 
     const headers = sheetData.headers.map(h => String(h).toLowerCase().trim());
     
@@ -139,6 +148,7 @@ export function SheetExplorer() {
       process: findIdx(ALIASES.process),
       suspended: findIdx(ALIASES.suspended),
       nextDate: bestDateIdx !== -1 ? bestDateIdx : 0,
+      phone: findIdx(ALIASES.phone)
     };
   }, [sheetData?.headers]);
 
@@ -232,7 +242,7 @@ export function SheetExplorer() {
       }
 
       setSheetData({ headers: finalHeaders, rows: finalRows });
-      if (force) toast({ title: "Sincronizado", description: `${finalRows.length} registros.` });
+      if (force) toast({ title: "Sincronizado", description: `${finalRows.length} registros únicos.` });
     } catch (e) { 
       toast({ variant: "destructive", title: "Erro na sincronização" }); 
     } finally { 
@@ -240,26 +250,107 @@ export function SheetExplorer() {
     }
   };
 
-  const handleCellEdit = useCallback((rowObj: any, colIdx: number, value: string) => {
-    if (!sheetData || !user) return;
+  const handleCellEdit = useCallback(async (rowObj: any, colIdx: number, value: string) => {
+    if (!sheetData) return;
     const token = sessionStorage.getItem('google_access_token');
     
+    // Atualização Otimista no Estado Local
     setSheetData(prev => {
       if (!prev) return null;
       const newRows = prev.rows.map(r => r._id === rowObj._id ? { ...r, [`col_${colIdx}`]: value } : r);
       return { ...prev, rows: newRows };
     });
 
-    if (token) {
-      const sourceTab = rowObj._tabName || activeTabName;
-      const sourceIdx = rowObj._rowIndex;
-      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sourceTab}'!R${sourceIdx + 2}C${colIdx + 1}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ values: [[value]] })
-      });
+    if (token && spreadsheetId) {
+      try {
+        const sourceTab = rowObj._tabName || activeTabName;
+        const sourceIdx = rowObj._rowIndex;
+        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sourceTab}'!R${sourceIdx + 2}C${colIdx + 1}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ values: [[value]] })
+        });
+        if (res.ok) {
+          toast({ title: "Planilha Atualizada", description: "Alteração salva no Google Sheets." });
+        }
+      } catch (err) {
+        console.error("Erro ao salvar no Sheets", err);
+      }
     }
-  }, [sheetData, activeTabName, spreadsheetId, user]);
+  }, [sheetData, activeTabName, spreadsheetId, toast]);
+
+  const handleWhatsApp = useCallback((row: any) => {
+    let phone = "";
+    if (indices.phone !== -1) {
+      phone = String(row[`col_${indices.phone}`] || "").trim();
+    } else {
+      // Busca exaustiva se não encontrou coluna por alias
+      phone = Object.values(row).find(v => {
+        const str = String(v).replace(/\D/g, "");
+        return str.length >= 10 && str.length <= 13;
+      }) as string || "";
+    }
+
+    if (!phone) {
+      toast({ variant: "destructive", title: "Contato Ausente", description: "Não foi possível encontrar um telefone para este cliente." });
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, "");
+    const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : "55" + cleanPhone;
+    const clientName = String(row[`col_${indices.client}`] || "Cliente").toUpperCase();
+    const processNum = String(row[`col_${indices.process}`] || "---");
+    
+    const message = encodeURIComponent(`Olá, ${clientName}. Entramos em contato referente ao processo ${processNum}.`);
+    window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank');
+  }, [indices, toast]);
+
+  const handleReschedule = useCallback((row: any) => {
+    setEditingRow(row);
+    setIsEditorOpen(true);
+  }, []);
+
+  const saveEditorChanges = async () => {
+    if (!editingRow || !sheetData) return;
+    
+    const token = sessionStorage.getItem('google_access_token');
+    const sourceTab = editingRow._tabName || activeTabName;
+    const sourceIdx = editingRow._rowIndex;
+
+    // Converte o objeto de volta para array de valores para o Sheets
+    const rowValues = sheetData.headers.map((_, i) => editingRow[`col_${i}`]);
+
+    if (token && spreadsheetId) {
+      setIsSyncing(true);
+      try {
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${sourceTab}'!R${sourceIdx + 2}C1?valueInputOption=USER_ENTERED`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ values: [rowValues] })
+        });
+        
+        setSheetData(prev => {
+          if (!prev) return null;
+          return { ...prev, rows: prev.rows.map(r => r._id === editingRow._id ? editingRow : r) };
+        });
+        
+        toast({ title: "Registro Salvo", description: "Dados sincronizados com sucesso." });
+        setIsEditorOpen(false);
+      } catch (e) {
+        toast({ variant: "destructive", title: "Erro ao Sincronizar" });
+      } finally {
+        setIsSyncing(false);
+      }
+    } else {
+      // Apenas local se não houver token
+      setSheetData(prev => {
+        if (!prev) return null;
+        return { ...prev, rows: prev.rows.map(r => r._id === editingRow._id ? editingRow : r) };
+      });
+      setIsEditorOpen(false);
+      toast({ title: "Salvo Localmente", description: "Acesso ao Google não disponível para sync remoto." });
+    }
+  };
 
   const filteredRows = useMemo(() => {
     if (!sheetData?.rows) return [];
@@ -362,8 +453,8 @@ export function SheetExplorer() {
                   data={sheetData?.rows || []} 
                   headers={sheetData?.headers || []} 
                   indices={indices} 
-                  onWhatsApp={() => {}} 
-                  onReschedule={() => {}} 
+                  onWhatsApp={handleWhatsApp} 
+                  onReschedule={handleReschedule} 
                   onNavigateToReports={() => setView('reports')} 
                 />
               ) : view === 'operations' ? (
@@ -404,6 +495,7 @@ export function SheetExplorer() {
                     <Table className="w-max min-w-full border-collapse m-0 p-0">
                       <TableHeader className="bg-zinc-100 sticky top-0 z-20 shadow-sm">
                         <TableRow>
+                          <TableHead className="bg-zinc-200 sticky left-0 z-30 w-12 text-center border-r">Ação</TableHead>
                           {sheetData?.headers.map((h, i) => (
                             <TableHead key={i} className="text-[10px] font-black uppercase text-zinc-600 whitespace-nowrap px-4 py-3 border-r border-b border-zinc-200 bg-zinc-100 min-w-[150px]">
                               {h}
@@ -414,6 +506,11 @@ export function SheetExplorer() {
                       <TableBody>
                         {filteredRows.map((row) => (
                           <TableRow key={row._id} className="hover:bg-zinc-50 transition-colors">
+                            <TableCell className="bg-white sticky left-0 z-10 border-r text-center">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-primary" onClick={() => handleReschedule(row)}>
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </TableCell>
                             {sheetData?.headers.map((_, i) => (
                               <TableCell key={i} className="text-[11px] px-4 py-2 border-r border-b whitespace-nowrap font-medium min-w-[150px]">
                                 {String(row[`col_${i}`] || "")}
@@ -433,8 +530,8 @@ export function SheetExplorer() {
                   headers={sheetData?.headers || []} 
                   indices={indices} 
                   onEdit={handleCellEdit} 
-                  onWhatsApp={() => {}} 
-                  onReschedule={() => {}} 
+                  onWhatsApp={handleWhatsApp} 
+                  onReschedule={handleReschedule} 
                 />
               ) : view === 'docs' ? (
                 <DocumentsView data={sheetData?.rows || []} headers={sheetData?.headers || []} indices={indices} />
@@ -474,6 +571,42 @@ export function SheetExplorer() {
               ) : null}
             </main>
           </SidebarInset>
+
+          {/* Modal de Edição de Registro */}
+          <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+              <DialogHeader className="p-6 pb-2">
+                <DialogTitle className="text-xl font-black uppercase tracking-tighter">Detalhes do Registro</DialogTitle>
+                <DialogDescription className="text-xs font-bold uppercase text-zinc-400">Edite as informações da planilha e salve para sincronizar.</DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sheetData?.headers.map((header, i) => (
+                    <div key={i} className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase text-zinc-500">{header}</Label>
+                      <Input 
+                        value={editingRow ? editingRow[`col_${i}`] : ""} 
+                        onChange={(e) => setEditingRow((prev: any) => ({ ...prev, [`col_${i}`]: e.target.value }))}
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <DialogFooter className="p-6 pt-2 bg-zinc-50 border-t">
+                <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="text-[10px] font-black h-9">CANCELAR</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => handleWhatsApp(editingRow)} className="text-[10px] font-black h-9 text-green-600 border-green-200 hover:bg-green-50">
+                    <MessageSquare className="h-3.5 w-3.5 mr-2" /> WHATSAPP
+                  </Button>
+                  <Button onClick={saveEditorChanges} disabled={isSyncing} className="bg-zinc-900 text-white text-[10px] font-black h-9">
+                    {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+                    SALVAR ALTERAÇÕES
+                  </Button>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </SidebarProvider>
     </TooltipProvider>

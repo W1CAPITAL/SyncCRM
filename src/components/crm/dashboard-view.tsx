@@ -13,7 +13,7 @@ interface DashboardProps {
   data: any[];
   headers: string[];
   indices: SheetIndices;
-  onWhatsApp: (row: any, headers: string[]) => void;
+  onWhatsApp: (row: any) => void;
   onReschedule: (row: any) => void;
   onNavigateToReports: () => void;
 }
@@ -142,7 +142,7 @@ export function DashboardView({ data, headers, indices, onWhatsApp, onReschedule
                   </div>
                 </div>
                 <div className="flex gap-2 print:hidden">
-                  <Button size="sm" variant="outline" className="h-8 text-[9px] font-bold" onClick={() => onWhatsApp(row, headers)}>
+                  <Button size="sm" variant="outline" className="h-8 text-[9px] font-bold" onClick={() => onWhatsApp(row)}>
                     <MessageSquare className="h-3.5 w-3.5 mr-1" /> WHATSAPP
                   </Button>
                   <Button size="sm" className="h-8 text-[9px] font-bold bg-zinc-900 text-white" onClick={() => onReschedule(row)}>
