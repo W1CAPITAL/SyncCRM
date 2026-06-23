@@ -13,7 +13,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { 
   Database, RefreshCw, LayoutDashboard, Search, Clock, LogIn, FileSpreadsheet, 
   LogOut, BarChart3, Loader2, Filter, CheckCircle, FileArchive, Settings, 
-  Briefcase, Globe, MessageSquare, Phone
+  Briefcase, Globe, MessageSquare
 } from "lucide-react";
 import { 
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
@@ -21,23 +21,23 @@ import {
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
 import { ReportsView } from "./reports-view";
+import { DocumentsView } from "./documents-view";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, googleProvider, useAuth } from "@/firebase";
 import { cn } from "@/lib/utils";
 import { signInWithPopup, signOut, GoogleAuthProvider } from "firebase/auth";
-import { parse, isBefore, startOfDay, isValid, isToday } from "date-fns";
+import { parse, isBefore, startOfDay, isValid } from "date-fns";
 import { Card, CardContent } from "../ui/card";
 
 const DEFAULT_SPREADSHEET_ID = "1JHiy3SbHRd5di5U9Zx4yvKrCSKtaOnFQdiZo0RDY9O0";
 const COLUMN_WIDTH = 220;
 
-// MAPEAMENTO REAL DA PLANILHA
-const IDX_ADV = 0;    // Responsável
-const IDX_OFFICE = 1; // Escritório
-const IDX_STATUS = 2; // Status
-const IDX_CLIENT = 3; // Cliente
-const IDX_PROX = 4;   // Próximo
-const IDX_PROC = 5;   // Processo
+const IDX_ADV = 0;    // Col A
+const IDX_OFFICE = 1; // Col B
+const IDX_STATUS = 2; // Col C
+const IDX_CLIENT = 3; // Col D
+const IDX_PROX = 13;  // Col N
+const IDX_PROC = 5;   // Col F
 
 const TJ_MAP: Record<string, string> = {
   "01": "AC", "02": "AL", "03": "AM", "04": "AP", "05": "BA", "06": "CE", "07": "DF",
@@ -75,7 +75,6 @@ const parseCSV = (csvText: string) => {
 export const handleWhatsAppAction = (row: any, headers: string[]) => {
   const telIdx = headers.findIndex(h => h.toUpperCase().includes("TELEFONE") || h.toUpperCase().includes("CELULAR") || h.toUpperCase().includes("WHATSAPP"));
   const clientName = String(row[`col_${IDX_CLIENT}`] || "Cliente");
-  const processNum = String(row[`col_${IDX_PROC}`] || "");
   const phone = String(row[`col_${telIdx}`] || "").replace(/\D/g, "");
 
   if (!phone) {
@@ -83,7 +82,7 @@ export const handleWhatsAppAction = (row: any, headers: string[]) => {
     return;
   }
 
-  const msg = encodeURIComponent(`Olá ${clientName.toUpperCase()}, tudo bem? Sou do escritório parceiro e gostaria de falar sobre o seu processo ${processNum}.`);
+  const msg = encodeURIComponent(`Olá ${clientName.toUpperCase()}, tudo bem? Gostaríamos de falar sobre o seu processo.`);
   window.open(`https://wa.me/55${phone}?text=${msg}`, '_blank');
 };
 
@@ -104,10 +103,9 @@ const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: {
   const isEncerrado = valUpper.includes("ENCERRADO") || valUpper.includes("ARQUIVADO");
   
   let isAtrasadoData = false;
-  if (isProx && value) {
+  if (isProx && value && value !== "0") {
     try {
       const today = startOfDay(new Date());
-      // Tentativa de parse dd/MM/yyyy
       const date = parse(value.trim(), 'dd/MM/yyyy', new Date());
       if (isValid(date) && isBefore(date, today)) isAtrasadoData = true;
     } catch (e) {}
@@ -168,7 +166,7 @@ export function SheetExplorer() {
   const auth = useAuth();
   const { toast } = useToast();
 
-  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'tasks' | 'docs' | 'settings'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings'>('dashboard');
   const [availableTabs, setAvailableTabs] = useState<{name: string, gid: string}[]>([]);
   const [activeTabName, setActiveTabName] = useState<string>("");
   const [sheetData, setSheetData] = useState<{ headers: string[], rows: any[] } | null>(null);
@@ -222,9 +220,8 @@ export function SheetExplorer() {
         const text = await gvizRes.text();
         const json = JSON.parse(text.substring(text.indexOf("(") + 1, text.lastIndexOf(")")));
         if (json.table) {
-           const tabsFromGviz = json.table.cols ? [{ name: "Principal", gid: "0" }] : [{ name: "Principal", gid: "0" }];
-           setAvailableTabs(tabsFromGviz);
-           if (!activeTabName && tabsFromGviz.length) setActiveTabName(tabsFromGviz[0].name);
+           setAvailableTabs([{ name: "Principal", gid: "0" }]);
+           if (!activeTabName) setActiveTabName("Principal");
         }
       }
     } catch (error) {
@@ -282,16 +279,6 @@ export function SheetExplorer() {
     }
   }, [sheetData, activeTabName, spreadsheetId]);
 
-  const lawyers = useMemo(() => {
-    if (!sheetData) return [];
-    const set = new Set<string>();
-    sheetData.rows.forEach(r => {
-      const val = String(r[`col_${IDX_ADV}`] || "").trim().toUpperCase();
-      if (val && val !== "0" && val !== "RESPONSÁVEL") set.add(val);
-    });
-    return Array.from(set).sort();
-  }, [sheetData]);
-
   const filteredRows = useMemo(() => {
     if (!sheetData) return [];
     let rows = sheetData.rows;
@@ -307,7 +294,7 @@ export function SheetExplorer() {
         const status = String(row[`col_${IDX_STATUS}`] || "").toUpperCase();
         const prox = String(row[`col_${IDX_PROX}`] || "").trim();
         if (filterStatus === "vencido") {
-          if (!prox) return false;
+          if (!prox || prox === "0") return false;
           try {
             const date = parse(prox, 'dd/MM/yyyy', new Date());
             return isValid(date) && isBefore(date, today);
@@ -345,7 +332,7 @@ export function SheetExplorer() {
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={true}>
         <div className="flex h-screen w-full bg-white overflow-hidden text-zinc-900">
-          <Sidebar collapsible="icon" className="border-r bg-zinc-950 text-white border-zinc-800 print:hidden">
+          <Sidebar collapsible="icon" className="border-r bg-zinc-950 text-white border-zinc-800 shrink-0">
             <SidebarHeader className="border-b border-zinc-800 p-4">
               <div className="flex items-center gap-3">
                 <Database className="h-6 w-6 text-primary" />
@@ -370,8 +357,8 @@ export function SheetExplorer() {
             </SidebarContent>
           </Sidebar>
 
-          <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-            <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 z-50 shadow-sm print:hidden">
+          <SidebarInset className="flex flex-col flex-1 overflow-hidden min-w-0">
+            <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 z-50 print:hidden">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
                 <div className="h-6 w-px bg-zinc-200" />
@@ -381,89 +368,58 @@ export function SheetExplorer() {
               </div>
               <div className="flex items-center gap-3">
                 {!user ? (
-                  <Button size="sm" className="h-8 font-bold text-[11px] bg-zinc-900" onClick={handleLogin}>
-                    <LogIn className="h-3.5 w-3.5 mr-2" /> Entrar com Google
-                  </Button>
+                  <Button size="sm" className="h-8 font-bold text-[11px] bg-zinc-900" onClick={handleLogin}>Entrar com Google</Button>
                 ) : (
                   <Button variant="ghost" size="sm" className="h-8 text-[11px]" onClick={handleLogout}><LogOut className="h-3.5 w-3.5 mr-2" /> Sair</Button>
                 )}
               </div>
             </header>
 
-            <main className="flex-1 relative bg-zinc-50 overflow-hidden print:bg-white print:overflow-visible">
+            <main className="flex-1 relative bg-zinc-50 overflow-hidden">
               {view === 'dashboard' ? (
                 <DashboardView data={sheetData?.rows || []} headers={sheetData?.headers || []} onWhatsApp={handleWhatsAppAction} onReschedule={setSelectedRow} />
               ) : view === 'reports' ? (
                 <ReportsView data={sheetData?.rows || []} headers={sheetData?.headers || []} />
               ) : view === 'prazos' ? (
                 <DeadlinesView data={sheetData?.rows || []} headers={sheetData?.headers || []} onEdit={handleCellEdit} onWhatsApp={handleWhatsAppAction} onReschedule={setSelectedRow} />
+              ) : view === 'docs' ? (
+                <DocumentsView data={sheetData?.rows || []} headers={sheetData?.headers || []} />
               ) : view === 'settings' ? (
-                <div className="h-full p-8 overflow-y-auto bg-white">
+                <div className="h-full p-8 overflow-y-auto">
                   <div className="max-w-2xl mx-auto space-y-8">
                     <h2 className="text-2xl font-black uppercase tracking-tighter">Configurações</h2>
                     <Card><CardContent className="pt-6 space-y-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-zinc-400">ID da Planilha Google</Label>
-                        <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} className="font-mono text-xs h-10 border-2" />
+                        <Label className="text-[10px] font-black uppercase text-zinc-400">ID da Planilha</Label>
+                        <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} className="font-mono text-xs" />
                       </div>
-                      <Button className="w-full bg-zinc-900" onClick={() => handleCheckStructure()}>RECARREGAR DADOS</Button>
+                      <Button className="w-full bg-zinc-900" onClick={() => handleCheckStructure()}>ATUALIZAR CONEXÃO</Button>
                     </CardContent></Card>
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full flex-col overflow-hidden">
-                  <div className="bg-white border-b p-3 space-y-3 filter-bar shrink-0">
+                <div className="flex h-full flex-col">
+                  <div className="bg-white border-b p-3 space-y-3 shrink-0">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Filtrar por nome, processo ou qualquer dado..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Filtrar base de dados..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                       </div>
                       <Button variant="outline" size="sm" className="h-9 text-[11px] font-bold" onClick={() => fetchTabData(activeTabName)}>
                         <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isCheckingSync && "animate-spin")} /> ATUALIZAR
                       </Button>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <Select value={filterStatus} onValueChange={setFilterStatus}>
-                        <SelectTrigger className="h-8 text-[10px] font-bold uppercase"><div className="flex items-center gap-2"><Filter className="h-3 w-3" /> Status</div></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">TODOS OS STATUS</SelectItem>
-                          <SelectItem value="vencido">🔴 ATRASADOS</SelectItem>
-                          <SelectItem value="em_dia">🟢 EM DIA</SelectItem>
-                          <SelectItem value="encerrado">⚪ ENCERRADOS</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Select value={filterLawyer} onValueChange={setFilterLawyer}>
-                        <SelectTrigger className="h-8 text-[10px] font-bold uppercase"><div className="flex items-center gap-2"><Briefcase className="h-3 w-3" /> Responsável</div></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">TODOS OS ADVOGADOS</SelectItem>
-                          {lawyers.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-
-                      <Select value={filterState} onValueChange={setFilterState}>
-                        <SelectTrigger className="h-8 text-[10px] font-bold uppercase"><div className="flex items-center gap-2"><Globe className="h-3 w-3" /> Tribunal (TJ)</div></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">TODOS OS TRIBUNAIS</SelectItem>
-                          {Object.entries(TJ_MAP).map(([code, name]) => <SelectItem key={code} value={code}>TJ{name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
                   <div ref={parentRef} className="flex-1 overflow-auto bg-white relative">
                     {isCheckingSync && !sheetData ? (
-                      <div className="flex h-full items-center justify-center flex-col gap-4">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Sincronizando Base...</p>
-                      </div>
+                      <div className="flex h-full items-center justify-center flex-col gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                     ) : (
                       <div style={{ height: rowVirtualizer.getTotalSize(), width: 'max-content' }}>
-                        <div className="sticky top-0 z-20 flex bg-zinc-100 border-b h-10 w-full">
-                          <div className="w-12 h-10 border-r flex items-center justify-center text-[11px] font-bold text-zinc-400 sticky left-0 z-30 bg-zinc-100">#</div>
+                        <div className="sticky top-0 z-20 flex bg-zinc-100 border-b h-10">
+                          <div className="w-12 h-10 border-r flex items-center justify-center text-[11px] font-bold text-zinc-400 sticky left-0 bg-zinc-100">#</div>
                           {sheetData?.headers.map((h, i) => (
-                            <div key={`h-${i}`} className="h-10 border-r px-4 flex items-center text-[10px] font-bold text-zinc-600 uppercase tracking-tighter truncate bg-zinc-100" style={{ width: COLUMN_WIDTH }}>{h}</div>
+                            <div key={`h-${i}`} className="h-10 border-r px-4 flex items-center text-[10px] font-bold text-zinc-600 uppercase truncate bg-zinc-100" style={{ width: COLUMN_WIDTH }}>{h}</div>
                           ))}
                         </div>
                         {rowVirtualizer.getVirtualItems().map((vRow) => (
@@ -473,13 +429,11 @@ export function SheetExplorer() {
                     )}
                   </div>
 
-                  <footer className="h-10 bg-zinc-900 border-t flex items-center px-2 shrink-0 z-30 print:hidden">
+                  <footer className="h-10 bg-zinc-900 border-t flex items-center px-2 shrink-0">
                     {availableTabs.map((tab) => (
-                      <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 min-w-[120px] uppercase tracking-widest", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400 hover:text-zinc-200")}>{tab.name}</button>
+                      <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 uppercase tracking-widest", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400")}>{tab.name}</button>
                     ))}
-                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase tracking-widest">
-                      {filteredRows.length} Casos Encontrados
-                    </div>
+                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase">{filteredRows.length} Registros</div>
                   </footer>
                 </div>
               )}
@@ -488,24 +442,18 @@ export function SheetExplorer() {
           
           <Sheet open={!!selectedRow} onOpenChange={(o) => !o && setSelectedRow(null)}>
             <SheetContent className="sm:max-w-[500px] flex flex-col p-0 border-l-4 border-l-primary">
-              <SheetHeader className="p-8 bg-zinc-50 border-b">
-                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Gestão do Registro</SheetTitle>
+              <SheetHeader className="p-8 bg-zinc-50 border-b shrink-0">
+                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Edição de Caso</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-8 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" className="h-12 border-2 border-green-600 text-green-600 font-black text-[10px] uppercase" onClick={() => handleWhatsAppAction(selectedRow, sheetData?.headers || [])}>
-                    <MessageSquare className="h-4 w-4 mr-2" /> WhatsApp Direto
-                  </Button>
-                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>
-                    <CheckCircle className="h-4 w-4 mr-2" /> Encerrar Caso
-                  </Button>
+                  <Button variant="outline" className="h-12 border-2 border-green-600 text-green-600 font-black text-[10px] uppercase" onClick={() => handleWhatsAppAction(selectedRow, sheetData?.headers || [])}>WhatsApp</Button>
+                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>Concluir</Button>
                 </div>
-                
                 <hr className="my-6" />
-
                 {sheetData?.headers.map((h, i) => (
                   <div key={`edit-${i}`} className="space-y-1.5">
-                    <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{h}</Label>
+                    <Label className="text-[10px] font-bold text-zinc-400 uppercase">{h}</Label>
                     <Input className="text-xs h-9" value={selectedRow?.[`col_${i}`] || ""} onChange={(e) => handleCellEdit(parseInt(selectedRow._id), i, e.target.value)} />
                   </div>
                 ))}

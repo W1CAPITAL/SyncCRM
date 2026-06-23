@@ -5,10 +5,10 @@ import React, { useMemo, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend, Cell as RechartsCell
+  PieChart, Pie, Cell, Legend
 } from "recharts";
 import { 
-  Printer, Download, ImageIcon, Loader2, TrendingUp, Users, Building2, AlertCircle
+  Printer, Download, ImageIcon, Loader2, TrendingUp, Users, Building2, ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -42,32 +42,27 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
     const statusDist: Record<string, number> = {};
     const tribunals: Record<string, number> = {};
 
-    // Mapeamento Dinâmico Fixo conforme solicitado
     const advIdx = 0;    // Coluna A
     const escrIdx = 1;   // Coluna B
     const statusIdx = 2; // Coluna C
     const procIdx = 5;   // Coluna F
 
     data.forEach(row => {
-      // Responsável
       const adv = String(row[`col_${advIdx}`] || "").toUpperCase().trim();
       if (adv && adv !== "0" && adv !== "RESPONSÁVEL" && adv.length > 2) {
         lawyers[adv] = (lawyers[adv] || 0) + 1;
       }
 
-      // Escritório
       const escr = String(row[`col_${escrIdx}`] || "").toUpperCase().trim();
       if (escr && escr !== "0" && escr !== "ESCRITÓRIO" && escr.length > 1) {
         offices[escr] = (offices[escr] || 0) + 1;
       }
 
-      // Status
       const st = String(row[`col_${statusIdx}`] || "").toUpperCase().trim();
       if (st && st !== "0" && st !== "STATUS") {
         statusDist[st] = (statusDist[st] || 0) + 1;
       }
 
-      // Tribunal via CNJ
       const fullProc = String(row[`col_${procIdx}`] || "").toUpperCase().trim();
       const cnjMatch = fullProc.match(/\.8\.(\d{2})\./);
       if (cnjMatch) {
@@ -82,10 +77,16 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value);
 
+    // Agrupa status pequenos
+    const rawStatus = formatData(statusDist);
+    const topStatus = rawStatus.slice(0, 7);
+    const otherStatus = rawStatus.slice(7).reduce((acc, curr) => acc + curr.value, 0);
+    if (otherStatus > 0) topStatus.push({ name: "OUTROS", value: otherStatus });
+
     return {
       lawyers: formatData(lawyers),
       offices: formatData(offices),
-      status: formatData(statusDist).slice(0, 10),
+      status: topStatus,
       tribunals: formatData(tribunals).slice(0, 15),
       total: data.length
     };
@@ -94,17 +95,26 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsExporting(true);
-    toast({ title: "Iniciando Exportação", description: "Gerando PDF Premium Local..." });
+    toast({ title: "Iniciando Exportação", description: "Capturando BI completo (incluindo volume por tribunal)..." });
 
     try {
+      // Força o container a mostrar tudo (remove scroll temporariamente)
+      const originalStyle = reportRef.current.style.height;
+      const originalOverflow = reportRef.current.style.overflow;
+      reportRef.current.style.height = 'auto';
+      reportRef.current.style.overflow = 'visible';
+
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#f9fafb',
-        height: reportRef.current.scrollHeight,
-        windowWidth: 1200
+        width: 1200 // Largura fixa para manter proporção
       });
+
+      // Restaura estilos
+      reportRef.current.style.height = originalStyle;
+      reportRef.current.style.overflow = originalOverflow;
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
@@ -114,9 +124,11 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
       let heightLeft = pdfHeight;
       let position = 0;
 
+      // Adiciona primeira página
       pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
       heightLeft -= pdf.internal.pageSize.getHeight();
 
+      // Adiciona páginas extras se necessário
       while (heightLeft >= 0) {
         position = heightLeft - pdfHeight;
         pdf.addPage();
@@ -124,14 +136,14 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
         heightLeft -= pdf.internal.pageSize.getHeight();
       }
 
-      pdf.save(`SyncCRM_Relatorio_${new Date().getTime()}.pdf`);
-      toast({ title: "PDF Gerado", description: "O download foi concluído com sucesso." });
+      pdf.save(`SyncCRM_BI_Executivo_${new Date().getTime()}.pdf`);
+      toast({ title: "PDF Gerado", description: "O download do BI completo foi concluído." });
     } catch (error: any) {
       console.error(error);
       toast({ 
         variant: "destructive", 
-        title: "Erro na Geração PDF", 
-        description: `Falha local: ${error.message}. Tente usar a Impressão Rápida.` 
+        title: "Erro na Exportação", 
+        description: "Falha ao capturar BI. Tente usar 'Impressão Rápida'." 
       });
     } finally {
       setIsExporting(false);
@@ -162,7 +174,7 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
         <div className="flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-4">
           <div>
             <h2 className="text-lg font-black text-zinc-900 uppercase tracking-tighter">BI Gerencial Premium</h2>
-            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Base de Dados: {stats.total} registros</p>
+            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Análise de {stats.total} registros</p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             <Button variant="outline" size="sm" className="font-black text-[9px] h-9" onClick={() => window.print()} disabled={isExporting}>
@@ -170,26 +182,17 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
             </Button>
             <Button className="bg-zinc-900 hover:bg-zinc-800 text-white font-black text-[9px] h-9" onClick={handleDownloadPDF} disabled={isExporting}>
               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
-              DOWNLOAD PDF
+              EXPORTAR PDF COMPLETO
             </Button>
             <Button variant="secondary" size="sm" className="font-black text-[9px] h-9" onClick={handleDownloadPNG} disabled={isExporting}>
-              <ImageIcon className="h-3.5 w-3.5 mr-2" /> EXPORTAR PNG
+              <ImageIcon className="h-3.5 w-3.5 mr-2" /> PNG
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-zinc-50 p-8" id="report-scroll-area">
-        <div 
-          ref={reportRef} 
-          className="space-y-8 max-w-7xl mx-auto w-full"
-        >
-          {/* Header de Impressão */}
-          <div className="hidden print:flex flex-col items-center justify-center h-[120px] border-b-2 border-black mb-10">
-            <h1 className="text-3xl font-black uppercase tracking-tighter">SyncCRM Executive Intelligence</h1>
-            <p className="text-[10px] font-mono mt-2">Relatório gerado em: {new Date().toLocaleString()}</p>
-          </div>
-
+      <div className="flex-1 overflow-y-auto p-8" id="report-scroll-area">
+        <div ref={reportRef} className="space-y-8 max-w-7xl mx-auto w-full">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-zinc-900 text-white border-none shadow-md">
               <CardContent className="pt-6">
@@ -204,7 +207,7 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Users className="h-4 w-4 text-zinc-400" />
-                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Responsáveis Ativos (Coluna A)</p>
+                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Responsáveis Ativos</p>
                 </div>
                 <p className="text-4xl font-black text-blue-600">{stats.lawyers.length}</p>
               </CardContent>
@@ -213,7 +216,7 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Building2 className="h-4 w-4 text-zinc-400" />
-                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Escritórios Identificados (Coluna B)</p>
+                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Escritórios (Col B)</p>
                 </div>
                 <p className="text-4xl font-black text-green-600">{stats.offices.length}</p>
               </CardContent>
@@ -225,20 +228,20 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardHeader className="border-b bg-zinc-50/50">
                 <CardTitle className="text-xs font-black uppercase tracking-widest">Composição da Carteira (Status)</CardTitle>
               </CardHeader>
-              <CardContent className="h-[320px] pt-6">
+              <CardContent className="h-[350px] pt-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie 
                       data={stats.status} 
-                      cx="50%" cy="50%" 
-                      innerRadius={60} outerRadius={100} 
+                      cx="50%" cy="45%" 
+                      innerRadius={65} outerRadius={105} 
                       paddingAngle={5} dataKey="value" 
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      stroke="none"
                     >
                       {stats.status.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                     </Pie>
                     <Tooltip />
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                    <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -248,14 +251,14 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardHeader className="border-b bg-zinc-50/50">
                 <CardTitle className="text-xs font-black uppercase tracking-widest">Volume por Tribunal (Filtro CNJ)</CardTitle>
               </CardHeader>
-              <CardContent className="h-[320px] pt-6">
+              <CardContent className="h-[350px] pt-6">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.tribunals} layout="vertical" margin={{ left: 40, right: 20 }}>
+                  <BarChart data={stats.tribunals} layout="vertical" margin={{ left: 40, right: 30 }}>
                     <XAxis type="number" hide />
                     <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 9, fontWeight: 'bold' }} />
-                    <Tooltip />
+                    <Tooltip cursor={{ fill: '#f8fafc' }} />
                     <Bar dataKey="value" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={20}>
-                      {stats.tribunals.map((_, index) => <RechartsCell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                      {stats.tribunals.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -263,57 +266,53 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
             <Card className="shadow-sm border-none bg-white">
               <CardHeader className="border-b bg-zinc-50/50">
-                <CardTitle className="text-xs font-black uppercase tracking-widest">Ranking de Responsáveis (Coluna A)</CardTitle>
+                <CardTitle className="text-xs font-black uppercase tracking-widest">Top Responsáveis (Coluna A)</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="bg-zinc-100/50 border-b">
-                        <th className="p-3 text-left font-black uppercase">Responsável</th>
-                        <th className="p-3 text-right font-black uppercase">Processos</th>
+              <div className="max-h-[400px] overflow-y-auto">
+                <table className="w-full text-[11px]">
+                  <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                    <tr className="bg-zinc-100/50 border-b">
+                      <th className="p-3 text-left font-black uppercase">Responsável</th>
+                      <th className="p-3 text-right font-black uppercase">Volume</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.lawyers.slice(0, 50).map((row, i) => (
+                      <tr key={i} className="border-b hover:bg-zinc-50/50">
+                        <td className="p-3 font-bold text-zinc-700">{row.name}</td>
+                        <td className="p-3 font-black text-right text-primary">{row.value}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {stats.lawyers.slice(0, 50).map((row, i) => (
-                        <tr key={i} className="border-b hover:bg-zinc-50/50">
-                          <td className="p-3 font-bold text-zinc-700">{row.name}</td>
-                          <td className="p-3 font-black text-right text-primary">{row.value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Card>
 
             <Card className="shadow-sm border-none bg-white">
               <CardHeader className="border-b bg-zinc-50/50">
-                <CardTitle className="text-xs font-black uppercase tracking-widest">Ranking de Escritórios (Coluna B)</CardTitle>
+                <CardTitle className="text-xs font-black uppercase tracking-widest">Top Escritórios (Coluna B)</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="bg-zinc-100/50 border-b">
-                        <th className="p-3 text-left font-black uppercase">Escritório</th>
-                        <th className="p-3 text-right font-black uppercase">Volume</th>
+              <div className="max-h-[400px] overflow-y-auto">
+                <table className="w-full text-[11px]">
+                  <thead className="sticky top-0 bg-white z-10 shadow-sm">
+                    <tr className="bg-zinc-100/50 border-b">
+                      <th className="p-3 text-left font-black uppercase">Escritório</th>
+                      <th className="p-3 text-right font-black uppercase">Volume</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.offices.slice(0, 50).map((row, i) => (
+                      <tr key={i} className="border-b hover:bg-zinc-50/50">
+                        <td className="p-3 font-bold text-zinc-700">{row.name}</td>
+                        <td className="p-3 font-black text-right text-green-600">{row.value}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {stats.offices.slice(0, 50).map((row, i) => (
-                        <tr key={i} className="border-b hover:bg-zinc-50/50">
-                          <td className="p-3 font-bold text-zinc-700">{row.name}</td>
-                          <td className="p-3 font-black text-right text-green-600">{row.value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           </div>
         </div>

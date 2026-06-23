@@ -5,9 +5,8 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { parse, isBefore, isToday, startOfDay, isValid } from "date-fns";
-import { Phone, MessageSquare, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 interface DeadlinesViewProps {
@@ -19,11 +18,11 @@ interface DeadlinesViewProps {
 }
 
 export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
-  const getIdx = (name: string) => headers.findIndex(h => h.toUpperCase().includes(name.toUpperCase()));
-  const proxIdx = getIdx("PRÓXIMO");
-  const retIdx = getIdx("RETORNO");
-  const clientIdx = headers.findIndex(h => h.toUpperCase() === "CLIENTE" || h.toUpperCase() === "NOME");
-  const telIdx = headers.findIndex(h => h.toUpperCase().includes("TELEFONE") || h.toUpperCase().includes("CELULAR"));
+  // MAPEAMENTO FIXO SEGUNDO ESPECIFICAÇÃO
+  const statusIdx = 2; // Coluna C
+  const clientIdx = 3; // Coluna D
+  const retIdx = 12;    // Coluna M (Retorno)
+  const proxIdx = 13;   // Coluna N (Próximo)
 
   const groups = useMemo(() => {
     const today = startOfDay(new Date());
@@ -32,14 +31,12 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
     const upcoming: any[] = [];
 
     data.forEach((row, i) => {
-      // Ignora casos encerrados ou sem data de próximo
-      const statusIdx = headers.findIndex(h => h.toUpperCase().includes("STATUS"));
       const statusVal = String(row[`col_${statusIdx}`] || "").toUpperCase();
       const isClosed = statusVal.includes("ENCERRADO") || statusVal.includes("ARQUIVADO") || statusVal.includes("JULGADO");
       if (isClosed) return;
 
       const proxStr = String(row[`col_${proxIdx}`] || "").trim();
-      if (!proxStr) return;
+      if (!proxStr || proxStr === "0") return;
 
       try {
         const proxDate = parse(proxStr, 'dd/MM/yyyy', new Date());
@@ -57,18 +54,20 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
       } catch (e) {}
     });
 
+    const sortFn = (a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime();
+
     return { 
-      overdue: overdue.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime()), 
+      overdue: overdue.sort(sortFn), 
       today: todayList,
-      upcoming: upcoming.sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime())
+      upcoming: upcoming.sort(sortFn)
     };
-  }, [data, headers, proxIdx]);
+  }, [data, proxIdx]);
 
   const renderGroup = (title: string, items: any[], type: 'overdue' | 'today' | 'upcoming') => {
     if (items.length === 0) return null;
 
     return (
-      <div className="space-y-4 mb-8">
+      <div className="space-y-4 mb-10">
         <div className="flex items-center justify-between border-b pb-2">
           <h3 className={cn(
             "text-sm font-black uppercase tracking-widest flex items-center gap-2",
@@ -81,7 +80,7 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
           {items.map((item) => (
             <Card key={item._id} className={cn(
               "shadow-sm border-l-4 transition-all hover:shadow-md bg-white",
-              type === 'overdue' ? "border-l-red-600" : type === 'today' ? "border-l-amber-50" : "border-l-green-500"
+              type === 'overdue' ? "border-l-red-600" : type === 'today' ? "border-l-amber-500" : "border-l-green-500"
             )}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -103,12 +102,12 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
                     <p className="text-[10px] font-medium">{item[`col_${retIdx}`] || "--"}</p>
                   </div>
                   <div className="flex-1">
-                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Situação</p>
+                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Status</p>
                     <p className={cn(
                       "text-[9px] font-black uppercase",
                       type === 'overdue' ? "text-red-600" : type === 'today' ? "text-amber-600" : "text-green-600"
                     )}>
-                      {type === 'overdue' ? "URGENTE / ATRASADO" : type === 'today' ? "CONTATAR HOJE" : "PRÓXIMO CONTATO"}
+                      {type === 'overdue' ? "URGENTE" : type === 'today' ? "CONTATAR HOJE" : "PROGRAMADO"}
                     </p>
                   </div>
                 </div>
@@ -120,7 +119,7 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
                   <Button variant="outline" size="sm" className="h-7 text-[9px] flex-1" onClick={() => onReschedule(item)}>
                     <Clock className="h-3.5 w-3.5 mr-2" /> Reagendar
                   </Button>
-                  <Button variant="default" size="sm" className="h-7 text-[9px] flex-1 bg-zinc-900" onClick={() => onEdit(parseInt(item._id), headers.findIndex(h => h.toUpperCase().includes("STATUS")), "ENCERRADO")}>
+                  <Button variant="default" size="sm" className="h-7 text-[9px] flex-1 bg-zinc-900" onClick={() => onEdit(parseInt(item._id), statusIdx, "ENCERRADO")}>
                     <CheckCircle className="h-3.5 w-3.5 mr-2" /> Concluir
                   </Button>
                 </div>
@@ -133,12 +132,12 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-zinc-50/30 overflow-hidden">
-      <header className="bg-white border-b p-6 shadow-sm z-10">
+    <div className="flex flex-col h-full bg-zinc-50/30 overflow-hidden">
+      <header className="bg-white border-b p-6 shadow-sm shrink-0">
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
-            <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos Decisivo</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Baseado na coluna Próximo</p>
+            <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos</h2>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Análise baseada na Coluna N (Próximo Contato)</p>
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 font-black">{groups.overdue.length} ATRASADOS</Badge>
@@ -147,20 +146,20 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
         </div>
       </header>
       
-      <ScrollArea className="flex-1 p-8">
+      <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-7xl mx-auto w-full">
-          {renderGroup("🔴 Urgentes / Atrasados", groups.overdue, 'overdue')}
-          {renderGroup("🟡 Contatar Hoje", groups.today, 'today')}
-          {renderGroup("🟢 Próximos Contatos", groups.upcoming, 'upcoming')}
+          {renderGroup("🔴 Casos Críticos / Atrasados", groups.overdue, 'overdue')}
+          {renderGroup("🟡 Pendências de Hoje", groups.today, 'today')}
+          {renderGroup("🟢 Próximos Passos", groups.upcoming, 'upcoming')}
           
           {groups.overdue.length === 0 && groups.today.length === 0 && groups.upcoming.length === 0 && (
             <div className="flex h-64 flex-col items-center justify-center text-center space-y-4">
               <CheckCircle className="h-12 w-12 text-green-500" />
-              <p className="text-zinc-500 font-black uppercase text-xs tracking-widest">Tudo em dia! Nenhum prazo pendente para agora.</p>
+              <p className="text-zinc-500 font-black uppercase text-xs tracking-widest">Tudo em dia! Sem pendências pendentes.</p>
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
