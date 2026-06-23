@@ -8,78 +8,71 @@ import { parse, isBefore, isToday, startOfDay, isValid } from "date-fns";
 import { MessageSquare, Clock, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SheetIndices } from "./sheet-explorer";
 
 interface DeadlinesViewProps {
   data: any[];
   headers: string[];
-  onEdit: (r: number, c: number, v: string) => void;
+  indices: SheetIndices;
+  onEdit: (rowObj: any, c: number, v: string) => void;
   onWhatsApp: (row: any, headers: string[]) => void;
   onReschedule: (row: any) => void;
 }
 
-export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
-  // MAPEAMENTO RÍGIDO CONFORME PLANILHA
-  const advIdx = 0;    // Coluna A
-  const statusIdx = 2; // Coluna C
-  const clientIdx = 3; // Coluna D
-  const hIdx = 7;      // Coluna H
-  const retIdx = 12;   // Coluna M
-  const proxIdx = 13;  // Coluna N
-
+export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
   const groups = useMemo(() => {
     const today = startOfDay(new Date());
     const overdue: any[] = [];
     const todayList: any[] = [];
     const upcoming: any[] = [];
+    const processosVistos = new Set();
 
-    data.forEach((row, i) => {
-      const st = String(row[`col_${statusIdx}`] || "").toUpperCase().trim();
-      const adv = String(row[`col_${advIdx}`] || "").toUpperCase().trim();
-      const colH = String(row[`col_${hIdx}`] || "").toUpperCase().trim();
+    const INACTIVE_KEYWORDS = [
+      "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
+      "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "SUCUMBÊNCIAS", 
+      "SUCUMBÊNCIA", "INATIVO"
+    ];
 
-      // REGRA DE FILTRO DE ATIVOS RIGOROSA
-      const isClosed = 
-        st.includes("ENCERRADO") || 
-        st.includes("ARQUIVADO") || 
-        st.includes("JULGADO") || 
-        st.includes("SUCUMBENCIAS") ||
-        adv === "ENCERRADO" ||
-        colH === "SUSPENSO";
+    data.forEach((row) => {
+      const proc = String(row[`col_${indices.process}`] || "").trim();
+      const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
+      const adv = String(row[`col_${indices.lawyer}`] || "").toUpperCase().trim();
+      const susp = String(row[`col_${indices.suspended}`] || "").toUpperCase().trim();
 
-      if (isClosed) return;
+      // De-duplicação V3
+      if (proc && processosVistos.has(proc)) return;
+      if (proc) processosVistos.add(proc);
 
-      const proxStr = String(row[`col_${proxIdx}`] || "").trim();
+      const isInactive = 
+        INACTIVE_KEYWORDS.some(k => st.includes(k)) || 
+        adv.includes("ENCERRADO") || 
+        susp.includes("SUSPEN");
+
+      if (isInactive) return;
+
+      const proxStr = String(row[`col_${indices.nextDate}`] || "").trim();
       if (!proxStr || proxStr === "0") return;
 
       try {
-        const proxDate = parse(proxStr, 'dd/MM/yyyy', new Date());
+        const proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
         if (!isValid(proxDate)) return;
 
-        const item = { ...row, originalIdx: i, parsedDate: proxDate };
+        const item = { ...row, parsedDate: proxDate };
         const proxStart = startOfDay(proxDate);
 
-        if (isBefore(proxStart, today)) {
-          overdue.push(item);
-        } else if (isToday(proxStart)) {
-          todayList.push(item);
-        } else {
-          upcoming.push(item);
-        }
+        if (isBefore(proxStart, today)) overdue.push(item);
+        else if (isToday(proxStart)) todayList.push(item);
+        else upcoming.push(item);
       } catch (e) {}
     });
 
     const sortFn = (a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime();
 
-    return { 
-      overdue: overdue.sort(sortFn), 
-      today: todayList,
-      upcoming: upcoming.sort(sortFn)
-    };
-  }, [data]);
+    return { overdue: overdue.sort(sortFn), today: todayList, upcoming: upcoming.sort(sortFn) };
+  }, [data, indices]);
 
   const renderGroup = (title: string, items: any[], type: 'overdue' | 'today' | 'upcoming') => {
     if (items.length === 0) return null;
-
     return (
       <div className="space-y-4 mb-10">
         <div className="flex items-center justify-between border-b pb-2">
@@ -99,41 +92,33 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Caso / Cliente</p>
-                    <p className="text-[11px] font-bold text-zinc-900 truncate uppercase">{String(item[`col_${clientIdx}`] || "N/A")}</p>
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Cliente / Processo</p>
+                    <p className="text-[11px] font-bold text-zinc-900 truncate uppercase">{String(item[`col_${indices.client}`] || "N/A")}</p>
                   </div>
-                  <Badge variant="outline" className={cn(
-                    "text-[9px] font-black",
-                    type === 'overdue' ? "bg-red-50 text-red-600 border-red-200" : "bg-zinc-50"
-                  )}>
-                    {item[`col_${proxIdx}`]}
+                  <Badge variant="outline" className={cn("text-[9px] font-black", type === 'overdue' ? "bg-red-50 text-red-600 border-red-200" : "bg-zinc-50")}>
+                    {item[`col_${indices.nextDate}`]}
                   </Badge>
                 </div>
-                
                 <div className="flex items-center gap-4 py-2 border-y border-zinc-50">
                   <div className="flex-1">
-                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Último Retorno</p>
-                    <p className="text-[10px] font-medium">{item[`col_${retIdx}`] || "--"}</p>
+                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Responsável</p>
+                    <p className="text-[10px] font-medium truncate uppercase">{item[`col_${indices.lawyer}`] || "--"}</p>
                   </div>
                   <div className="flex-1">
                     <p className="text-[8px] font-bold text-zinc-400 uppercase">Prioridade</p>
-                    <p className={cn(
-                      "text-[9px] font-black uppercase",
-                      type === 'overdue' ? "text-red-600" : type === 'today' ? "text-amber-600" : "text-green-600"
-                    )}>
+                    <p className={cn("text-[9px] font-black uppercase", type === 'overdue' ? "text-red-600" : type === 'today' ? "text-amber-600" : "text-green-600")}>
                       {type === 'overdue' ? "URGENTE" : type === 'today' ? "HOJE" : "PROGRAMADO"}
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full text-green-600 border-green-100 hover:bg-green-50" onClick={() => onWhatsApp(item, headers)}>
+                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full text-green-600 border-green-100" onClick={() => onWhatsApp(item, headers)}>
                     <MessageSquare className="h-3.5 w-3.5" />
                   </Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold flex-1" onClick={() => onReschedule(item)}>
                     <Clock className="h-3.5 w-3.5 mr-2" /> REAGENDAR
                   </Button>
-                  <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900" onClick={() => onEdit(parseInt(item._id), statusIdx, "ENCERRADO")}>
+                  <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
                     <CheckCircle className="h-3.5 w-3.5 mr-2" /> CONCLUIR
                   </Button>
                 </div>
@@ -151,7 +136,7 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Monitoramento Dinâmico de Retornos e Prazos</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Monitoramento Operacional Unificado V3</p>
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 font-black">{groups.overdue.length} ATRASADOS</Badge>
@@ -159,19 +144,11 @@ export function DeadlinesView({ data, headers, onEdit, onWhatsApp, onReschedule 
           </div>
         </div>
       </header>
-      
       <div className="flex-1 overflow-y-auto p-8" id="deadlines-scroll-area">
         <div className="max-w-7xl mx-auto w-full">
-          {renderGroup("🔴 Casos Críticos / Atrasados", groups.overdue, 'overdue')}
-          {renderGroup("🟡 Pendências de Hoje", groups.today, 'today')}
-          {renderGroup("🟢 Próximos Passos", groups.upcoming, 'upcoming')}
-          
-          {groups.overdue.length === 0 && groups.today.length === 0 && groups.upcoming.length === 0 && (
-            <div className="flex h-64 flex-col items-center justify-center text-center space-y-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
-              <p className="text-zinc-500 font-black uppercase text-xs tracking-widest">Agenda 100% atualizada!</p>
-            </div>
-          )}
+          {renderGroup("🔴 Casos Críticos (Atrasados)", groups.overdue, 'overdue')}
+          {renderGroup("🟡 Compromissos de Hoje", groups.today, 'today')}
+          {renderGroup("🟢 Próximos Vencimentos", groups.upcoming, 'upcoming')}
         </div>
       </div>
     </div>

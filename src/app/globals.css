@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,7 +38,6 @@
     margin: 10mm;
   }
 
-  /* Limpeza agressiva para impressão */
   header, 
   aside, 
   nav,
@@ -90,21 +88,34 @@
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Black Scrollbar - Mandatory V4 */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f1f1;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
+  background: #000000;
+  border-radius: 5px;
+  border: 2px solid #f1f1f1;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: #222222;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #f1f1f1;
+}
+
+/* Force scrollability and black scrollbar on all overflow containers */
+.overflow-auto, .overflow-x-auto, .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #f1f1f1;
 }
