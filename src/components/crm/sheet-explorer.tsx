@@ -10,14 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Database, RefreshCw, LayoutDashboard, Search, Clock, LogIn, FileSpreadsheet, 
-  LogOut, BarChart3, Loader2, Filter, CheckCircle, FileArchive, Settings, 
-  Briefcase, Globe, MessageSquare
+  Database, RefreshCw, LayoutDashboard, Search, Clock, LogOut, FileSpreadsheet, 
+  BarChart3, Loader2, FileArchive, Settings, Filter
 } from "lucide-react";
-import { 
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
-} from "@/components/ui/select";
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
 import { ReportsView } from "./reports-view";
@@ -30,14 +27,24 @@ import { parse, isBefore, startOfDay, isValid } from "date-fns";
 
 const DEFAULT_SPREADSHEET_ID = "1JHiy3SbHRd5di5U9Zx4yvKrCSKtaOnFQdiZo0RDY9O0";
 const COLUMN_WIDTH = 220;
+const CACHE_TTL = 5 * 60 * 1000; 
 
-// MAPEAMENTO DEFINITIVO
-const IDX_ADV = 0;    // Col A (Responsável)
-const IDX_OFFICE = 1; // Col B (Escritório)
-const IDX_STATUS = 2; // Col C (Status)
-const IDX_CLIENT = 3; // Col D (Cliente)
-const IDX_PROX = 13;  // Col N (Próximo)
-const IDX_PROC = 5;   // Col F (Processo/Tribunal)
+// MAPEAMENTO RÍGIDO CONFORME PLANILHA
+const IDX_ADV = 0;    // Coluna A
+const IDX_ESCR = 1;   // Coluna B
+const IDX_STATUS = 2; // Coluna C
+const IDX_CLIENT = 3; // Coluna D
+const IDX_PROC = 5;   // Coluna F (CNJ)
+const IDX_SUSP = 7;   // Coluna H (Suspenso)
+const IDX_RET = 12;   // Coluna M (Retorno)
+const IDX_PROX = 13;  // Coluna N (Próximo)
+
+const TJ_MAP: Record<string, string> = {
+  "01": "AC", "02": "AL", "03": "AM", "04": "AP", "05": "BA", "06": "CE", "07": "DF",
+  "08": "ES", "09": "GO", "10": "MA", "11": "MT", "12": "MS", "13": "MG", "14": "PA",
+  "15": "PB", "16": "PR", "17": "PE", "18": "PI", "19": "RJ", "20": "RN", "21": "RS",
+  "22": "RO", "23": "RR", "24": "SC", "25": "SE", "26": "SP", "27": "TO",
+};
 
 const parseCSV = (csvText: string) => {
   const result = [];
@@ -65,26 +72,6 @@ const parseCSV = (csvText: string) => {
   return result;
 };
 
-export const handleWhatsAppAction = (row: any, headers: string[]) => {
-  // Busca telefone em colunas prováveis
-  const telIdx = headers.findIndex(h => {
-    const head = h.toUpperCase();
-    return head.includes("TELEFONE") || head.includes("CELULAR") || head.includes("WHATSAPP") || head.includes("TEL");
-  });
-  
-  const clientName = String(row[`col_${IDX_CLIENT}`] || "Cliente");
-  const phoneRaw = String(telIdx !== -1 ? row[`col_${telIdx}`] : "").replace(/\D/g, "");
-  
-  if (!phoneRaw) {
-    alert("Telefone não identificado para este cliente.");
-    return;
-  }
-
-  const phone = phoneRaw.startsWith('55') ? phoneRaw : `55${phoneRaw}`;
-  const msg = encodeURIComponent(`Olá ${clientName.toUpperCase()}, tudo bem? Gostaríamos de conversar sobre o andamento do seu processo.`);
-  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
-};
-
 const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: { 
   value: string, rowIdx: number, colIdx: number, 
   onEdit: (r: number, c: number, v: string) => void, isProx?: boolean 
@@ -98,8 +85,7 @@ const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: {
   };
 
   const valUpper = String(value).toUpperCase();
-  const isVencido = valUpper.includes("VENCIDO") || valUpper.includes("ATRASADO");
-  const isEncerrado = valUpper.includes("ENCERRADO") || valUpper.includes("ARQUIVADO");
+  const isEncerrado = valUpper.includes("ENCERRADO") || valUpper.includes("ARQUIVADO") || valUpper.includes("JULGADO");
   
   let isAtrasadoData = false;
   if (isProx && value && value !== "0" && value.includes("/")) {
@@ -115,7 +101,7 @@ const Cell = memo(({ value, rowIdx, colIdx, onEdit, isProx }: {
       className={cn(
         "border-r px-3 flex items-center h-full overflow-hidden text-[11px] shrink-0",
         editing ? "p-0 ring-1 ring-inset ring-primary z-20 bg-white" : "hover:bg-black/5 cursor-text",
-        (isVencido || isAtrasadoData) && !editing && "bg-red-600 text-white font-bold",
+        isAtrasadoData && !editing && "bg-red-600 text-white font-bold",
         isEncerrado && !editing && "bg-zinc-100 text-zinc-400 opacity-60"
       )}
       style={{ width: COLUMN_WIDTH }}
@@ -148,11 +134,18 @@ const MemoizedRow = memo(({ row, rowIdx, headers, onEdit, onSelect, isSelected, 
       onClick={() => onSelect(row)}
     >
       <div className="flex items-center justify-center border-r bg-zinc-100 text-[10px] text-zinc-500 font-mono w-12 flex-shrink-0 sticky left-0 z-10">
-        {rowIdx + 1}
+        {parseInt(row._id) + 1}
       </div>
       <div className="flex items-stretch">
         {headers.map((_, colIdx) => (
-          <Cell key={`${row._id}-${colIdx}`} value={row[`col_${colIdx}`] || ""} rowIdx={rowIdx} colIdx={colIdx} onEdit={onEdit} isProx={colIdx === proxIdx} />
+          <Cell 
+            key={`${row._id}-${colIdx}`} 
+            value={row[`col_${colIdx}`] || ""} 
+            rowIdx={parseInt(row._id)} 
+            colIdx={colIdx} 
+            onEdit={onEdit} 
+            isProx={colIdx === proxIdx} 
+          />
         ))}
       </div>
     </div>
@@ -175,9 +168,23 @@ export function SheetExplorer() {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterLawyer, setFilterLawyer] = useState("all");
+  const [filterState, setFilterState] = useState("all");
   
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const getCache = useCallback((tab: string) => {
+    const key = `synccrm_cache_${spreadsheetId}_${tab}`;
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
+    const { data, timestamp } = JSON.parse(cached);
+    if (Date.now() - timestamp > CACHE_TTL) return null;
+    return data;
+  }, [spreadsheetId]);
+
+  const setCache = useCallback((tab: string, data: any) => {
+    const key = `synccrm_cache_${spreadsheetId}_${tab}`;
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+  }, [spreadsheetId]);
 
   const handleLogin = async () => {
     try {
@@ -193,6 +200,7 @@ export function SheetExplorer() {
   const handleLogout = async () => {
     await signOut(auth);
     sessionStorage.removeItem('google_access_token');
+    localStorage.clear();
     window.location.reload();
   };
 
@@ -209,18 +217,10 @@ export function SheetExplorer() {
           const tabs = data.sheets.map((s: any) => ({ name: s.properties.title, gid: s.properties.sheetId.toString() }));
           setAvailableTabs(tabs);
           if (tabs.length > 0 && !activeTabName) setActiveTabName(tabs[0].name);
-          return;
         }
-      }
-
-      const gvizRes = await fetch(`https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json`);
-      if (gvizRes.ok) {
-        const text = await gvizRes.text();
-        const json = JSON.parse(text.substring(text.indexOf("(") + 1, text.lastIndexOf(")")));
-        if (json.table) {
-           setAvailableTabs([{ name: "Principal", gid: "0" }]);
-           if (!activeTabName) setActiveTabName("Principal");
-        }
+      } else {
+        setAvailableTabs([{ name: "Principal", gid: "0" }]);
+        if (!activeTabName) setActiveTabName("Principal");
       }
     } catch (error) {
       console.error("Discovery failed", error);
@@ -229,53 +229,77 @@ export function SheetExplorer() {
     }
   };
 
-  const fetchTabData = async (tabName: string) => {
+  const fetchTabData = async (tabName: string, force = false) => {
     if (!tabName) return;
-    setIsCheckingSync(true);
-    try {
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
-      const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error("Aba inacessível.");
-      const csvText = await res.text();
-      const values = parseCSV(csvText);
-      if (values.length) {
-        const headersList = values[0];
-        const rows = values.slice(1).map((row: any[], i: number) => {
-          const obj: any = { _id: i.toString() };
-          headersList.forEach((_, idx) => obj[`col_${idx}`] = row[idx] || "");
-          return obj;
-        });
-        setSheetData({ headers: headersList, rows });
+
+    const cachedData = getCache(tabName);
+    if (cachedData && !force) {
+      setSheetData(cachedData);
+    }
+
+    if (!cachedData || force) {
+      setIsCheckingSync(true);
+      try {
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+        const res = await fetch(csvUrl);
+        if (!res.ok) throw new Error("Aba inacessível.");
+        const csvText = await res.text();
+        const values = parseCSV(csvText);
+        if (values.length) {
+          const headersList = values[0];
+          const rows = values.slice(1).map((row: any[], i: number) => {
+            const obj: any = { _id: i.toString() };
+            headersList.forEach((_, idx) => obj[`col_${idx}`] = row[idx] || "");
+            return obj;
+          });
+          const newData = { headers: headersList, rows };
+          setSheetData(newData);
+          setCache(tabName, newData);
+          if (force) toast({ title: "Sincronizado", description: "Dados atualizados com sucesso." });
+        }
+      } catch (error) {
+        toast({ variant: "destructive", title: "Sincronização", description: "Modo Offline ou Erro de Acesso." });
+      } finally {
+        setIsCheckingSync(false);
       }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro de Sincronização", description: "Falha ao baixar dados." });
-    } finally {
-      setIsCheckingSync(false);
     }
   };
 
   useEffect(() => { handleCheckStructure(); }, [spreadsheetId]);
   useEffect(() => { if (activeTabName) fetchTabData(activeTabName); }, [activeTabName]);
 
-  const handleCellEdit = useCallback((rowIdx: number, colIdx: number, value: string) => {
+  const handleCellEdit = useCallback((originalRowIdx: number, colIdx: number, value: string) => {
     if (!sheetData) return;
     const token = sessionStorage.getItem('google_access_token');
     
     setSheetData(prev => {
       if (!prev) return null;
       const newRows = [...prev.rows];
-      newRows[rowIdx] = { ...newRows[rowIdx], [`col_${colIdx}`]: value };
-      return { ...prev, rows: newRows };
+      const rowIndexInArray = newRows.findIndex(r => r._id === originalRowIdx.toString());
+      if (rowIndexInArray !== -1) {
+        newRows[rowIndexInArray] = { ...newRows[rowIndexInArray], [`col_${colIdx}`]: value };
+      }
+      const updated = { ...prev, rows: newRows };
+      setCache(activeTabName, updated);
+      return updated;
     });
 
     if (token) {
-      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${activeTabName}'!R${rowIdx + 2}C${colIdx + 1}?valueInputOption=USER_ENTERED`, {
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/'${activeTabName}'!R${originalRowIdx + 2}C${colIdx + 1}?valueInputOption=USER_ENTERED`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ values: [[value]] })
+      }).then(res => {
+        if (res.ok) {
+          toast({ title: "Célula Atualizada", description: "Sincronizado com Google Sheets." });
+        } else {
+          toast({ variant: "destructive", title: "Erro na Gravação", description: "Verifique suas permissões." });
+        }
       });
+    } else {
+      toast({ title: "Aviso de Modo Público", description: "Edição salva apenas localmente." });
     }
-  }, [sheetData, activeTabName, spreadsheetId]);
+  }, [sheetData, activeTabName, spreadsheetId, setCache, toast]);
 
   const filteredRows = useMemo(() => {
     if (!sheetData) return [];
@@ -297,23 +321,31 @@ export function SheetExplorer() {
             return isValid(date) && isBefore(date, today);
           } catch { return false; }
         }
-        if (filterStatus === "encerrado") return st.includes("ENCERRADO") || st.includes("ARQUIVADO");
-        return !st.includes("ENCERRADO");
+        return filterStatus === "encerrado" ? (st.includes("ENCERRADO") || st.includes("ARQUIVADO")) : (!st.includes("ENCERRADO") && !st.includes("ARQUIVADO"));
       });
     }
 
-    if (filterLawyer !== "all") {
-      rows = rows.filter(row => String(row[`col_${IDX_ADV}`] || "").toUpperCase() === filterLawyer);
+    if (filterState !== "all") {
+      rows = rows.filter(row => {
+        const proc = String(row[`col_${IDX_PROC}`] || "");
+        const match = proc.match(/\.8\.(\d{2})\./);
+        if (match) {
+          const stateCode = match[1];
+          const state = TJ_MAP[stateCode] || "OUTROS";
+          return state === filterState;
+        }
+        return false;
+      });
     }
 
     return rows;
-  }, [sheetData, searchQuery, filterStatus, filterLawyer]);
+  }, [sheetData, searchQuery, filterStatus, filterState]);
 
   const rowVirtualizer = useVirtualizer({
     count: filteredRows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 36,
-    overscan: 10,
+    overscan: 20,
   });
 
   return (
@@ -324,7 +356,7 @@ export function SheetExplorer() {
             <SidebarHeader className="border-b border-zinc-800 p-4">
               <div className="flex items-center gap-3">
                 <Database className="h-6 w-6 text-primary" />
-                <span className="font-bold text-white group-data-[collapsible=icon]:hidden">SyncCRM</span>
+                <span className="font-bold text-white group-data-[collapsible=icon]:hidden uppercase tracking-tighter">SyncCRM</span>
               </div>
             </SidebarHeader>
             <SidebarContent className="p-2">
@@ -346,7 +378,7 @@ export function SheetExplorer() {
           </Sidebar>
 
           <SidebarInset className="flex flex-col flex-1 overflow-hidden min-w-0">
-            <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 z-50 print:hidden">
+            <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 z-50">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
                 <div className="h-6 w-px bg-zinc-200" />
@@ -356,19 +388,19 @@ export function SheetExplorer() {
               </div>
               <div className="flex items-center gap-3">
                 {!user ? (
-                  <Button size="sm" className="h-8 font-bold text-[11px] bg-zinc-900" onClick={handleLogin}>Entrar com Google</Button>
+                  <Button size="sm" className="h-8 font-bold text-[11px] bg-zinc-900" onClick={handleLogin}>Conectar Google</Button>
                 ) : (
                   <Button variant="ghost" size="sm" className="h-8 text-[11px]" onClick={handleLogout}><LogOut className="h-3.5 w-3.5 mr-2" /> Sair</Button>
                 )}
               </div>
             </header>
 
-            <main className="flex-1 relative bg-zinc-50 overflow-hidden">
+            <main className="flex-1 relative bg-zinc-50 overflow-hidden flex flex-col">
               {view === 'dashboard' ? (
                 <DashboardView 
                   data={sheetData?.rows || []} 
                   headers={sheetData?.headers || []} 
-                  onWhatsApp={handleWhatsAppAction} 
+                  onWhatsApp={() => {}} 
                   onReschedule={setSelectedRow}
                   onNavigateToReports={() => setView('reports')}
                 />
@@ -379,41 +411,58 @@ export function SheetExplorer() {
                   data={sheetData?.rows || []} 
                   headers={sheetData?.headers || []} 
                   onEdit={handleCellEdit} 
-                  onWhatsApp={handleWhatsAppAction} 
+                  onWhatsApp={() => {}} 
                   onReschedule={setSelectedRow} 
                 />
               ) : view === 'docs' ? (
                 <DocumentsView data={sheetData?.rows || []} headers={sheetData?.headers || []} />
               ) : view === 'settings' ? (
-                <div className="h-full p-8 overflow-y-auto">
+                <div className="h-full p-8 overflow-y-auto bg-zinc-50">
                   <div className="max-w-2xl mx-auto space-y-8">
-                    <h2 className="text-2xl font-black uppercase tracking-tighter">Ajustes da Conexão</h2>
-                    <Card><CardContent className="pt-6 space-y-6">
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Conectividade</h2>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-zinc-200 space-y-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-zinc-400">ID da Google Sheet</Label>
+                        <Label className="text-[10px] font-black uppercase text-zinc-400">Identificador da Planilha</Label>
                         <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} className="font-mono text-xs" />
                       </div>
                       <Button className="w-full bg-zinc-900 text-white font-bold" onClick={() => handleCheckStructure()}>TESTAR CONEXÃO</Button>
-                    </CardContent></Card>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="flex h-full flex-col">
+                <>
                   <div className="bg-white border-b p-3 space-y-3 shrink-0">
                     <div className="flex items-center gap-3">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Buscar na base..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <Input className="h-9 pl-10 text-xs bg-zinc-50" placeholder="Pesquisar em toda a base..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                       </div>
-                      <Button variant="outline" size="sm" className="h-9 text-[11px] font-bold" onClick={() => fetchTabData(activeTabName)}>
-                        <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isCheckingSync && "animate-spin")} /> SINCRONIZAR
-                      </Button>
+                      <div className="flex gap-2">
+                        <Select value={filterState} onValueChange={setFilterState}>
+                          <SelectTrigger className="w-[120px] h-9 text-[11px] font-bold">
+                            <Filter className="h-3 w-3 mr-2" />
+                            <SelectValue placeholder="Estado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos UFs</SelectItem>
+                            {Object.values(TJ_MAP).sort().map(uf => (
+                              <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm" className="h-9 text-[11px] font-bold" onClick={() => fetchTabData(activeTabName, true)}>
+                          <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isCheckingSync && "animate-spin")} /> FORÇAR SYNC
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
                   <div ref={parentRef} className="flex-1 overflow-auto bg-white relative">
-                    {isCheckingSync && !sheetData ? (
-                      <div className="flex h-full items-center justify-center flex-col gap-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                    {!sheetData && isCheckingSync ? (
+                      <div className="flex h-full items-center justify-center flex-col gap-4">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Sincronizando registros...</p>
+                      </div>
                     ) : (
                       <div style={{ height: rowVirtualizer.getTotalSize(), width: 'max-content' }}>
                         <div className="sticky top-0 z-20 flex bg-zinc-100 border-b h-10">
@@ -422,20 +471,35 @@ export function SheetExplorer() {
                             <div key={`h-${i}`} className="h-10 border-r px-4 flex items-center text-[10px] font-bold text-zinc-600 uppercase truncate bg-zinc-100" style={{ width: COLUMN_WIDTH }}>{h}</div>
                           ))}
                         </div>
-                        {rowVirtualizer.getVirtualItems().map((vRow) => (
-                          <MemoizedRow key={filteredRows[vRow.index]._id} row={filteredRows[vRow.index]} rowIdx={vRow.index} headers={sheetData?.headers || []} onEdit={handleCellEdit} onSelect={setSelectedRow} isSelected={selectedRow?._id === filteredRows[vRow.index]._id} style={{ position: 'absolute', top: 0, left: 0, height: vRow.size, transform: `translateY(${vRow.start}px)` }} proxIdx={IDX_PROX} />
-                        ))}
+                        {rowVirtualizer.getVirtualItems().map((vRow) => {
+                          const row = filteredRows[vRow.index];
+                          return (
+                            <MemoizedRow 
+                              key={row._id} 
+                              row={row} 
+                              rowIdx={vRow.index} 
+                              headers={sheetData?.headers || []} 
+                              onEdit={handleCellEdit} 
+                              onSelect={setSelectedRow} 
+                              isSelected={selectedRow?._id === row._id} 
+                              style={{ position: 'absolute', top: 0, left: 0, height: vRow.size, transform: `translateY(${vRow.start}px)` }} 
+                              proxIdx={IDX_PROX} 
+                            />
+                          );
+                        })}
                       </div>
                     )}
                   </div>
 
                   <footer className="h-10 bg-zinc-900 border-t flex items-center px-2 shrink-0">
-                    {availableTabs.map((tab) => (
-                      <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 uppercase tracking-widest", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-800")}>{tab.name}</button>
-                    ))}
-                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase">{filteredRows.length} Casos Encontrados</div>
+                    <div className="flex h-full">
+                      {availableTabs.map((tab) => (
+                        <button key={tab.name} onClick={() => setActiveTabName(tab.name)} className={cn("h-full px-5 text-[10px] font-bold border-r border-zinc-800 uppercase tracking-widest transition-colors", activeTabName === tab.name ? "bg-primary text-white" : "text-zinc-400 hover:bg-zinc-800")}>{tab.name}</button>
+                      ))}
+                    </div>
+                    <div className="ml-auto px-4 text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{filteredRows.length} Registros Filtrados</div>
                   </footer>
-                </div>
+                </>
               )}
             </main>
           </SidebarInset>
@@ -443,18 +507,17 @@ export function SheetExplorer() {
           <Sheet open={!!selectedRow} onOpenChange={(o) => !o && setSelectedRow(null)}>
             <SheetContent className="sm:max-w-[500px] flex flex-col p-0 border-l-4 border-l-primary">
               <SheetHeader className="p-8 bg-zinc-50 border-b shrink-0">
-                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Gestão do Caso</SheetTitle>
+                <SheetTitle className="text-xl font-black uppercase tracking-tighter">Detalhes do Registro</SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-8 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" className="h-12 border-2 border-green-600 text-green-600 font-black text-[10px] uppercase" onClick={() => handleWhatsAppAction(selectedRow, sheetData?.headers || [])}>WhatsApp</Button>
-                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>Encerrar Caso</Button>
+                <div className="grid grid-cols-1 gap-4">
+                  <Button variant="outline" className="h-12 border-2 border-zinc-900 text-zinc-900 font-black text-[10px] uppercase hover:bg-zinc-100" onClick={() => handleCellEdit(parseInt(selectedRow._id), IDX_STATUS, "ENCERRADO")}>Encerrar Processo</Button>
                 </div>
                 <hr className="my-6" />
                 {sheetData?.headers.map((h, i) => (
                   <div key={`edit-${i}`} className="space-y-1.5">
                     <Label className="text-[10px] font-bold text-zinc-400 uppercase">{h}</Label>
-                    <Input className="text-xs h-9" value={selectedRow?.[`col_${i}`] || ""} onChange={(e) => handleCellEdit(parseInt(selectedRow._id), i, e.target.value)} />
+                    <Input className="text-xs h-9 focus:ring-primary" value={selectedRow?.[`col_${i}`] || ""} onChange={(e) => handleCellEdit(parseInt(selectedRow._id), i, e.target.value)} />
                   </div>
                 ))}
               </div>

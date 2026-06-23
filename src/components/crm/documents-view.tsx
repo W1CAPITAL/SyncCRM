@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { FileText, Download, Search, FileArchive, ExternalLink } from "lucide-react";
+import { FileText, Search, FileArchive, ExternalLink, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -14,13 +14,22 @@ interface DocumentsViewProps {
 
 export function DocumentsView({ data, headers }: DocumentsViewProps) {
   const [search, setSearch] = useState("");
-  const clientIdx = 3; 
-  const procIdx = 5;   
+  const clientIdx = 3; // Coluna D
+  const procIdx = 5;   // Coluna F
 
   const filteredDocs = useMemo(() => {
     return data.filter(row => {
       const vals = Object.values(row).join(" ").toLowerCase();
-      const hasLink = vals.includes("http") || vals.includes("docs.google") || vals.includes(".pdf");
+      
+      // Filtro rigoroso: Apenas linhas que contenham indícios reais de documentos/links/anexos
+      const hasLink = 
+        vals.includes("http") || 
+        vals.includes("docs.google") || 
+        vals.includes(".pdf") || 
+        vals.includes(".docx") ||
+        vals.includes(".xlsx") ||
+        vals.includes("drive.google");
+
       if (!hasLink) return false;
       if (!search) return true;
       return vals.includes(search.toLowerCase());
@@ -33,7 +42,7 @@ export function DocumentsView({ data, headers }: DocumentsViewProps) {
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Arquivo Digital</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Registros com documentos ou links identificados</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Repositório de registros com links ou anexo vinculados</p>
           </div>
           <div className="relative w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -42,45 +51,50 @@ export function DocumentsView({ data, headers }: DocumentsViewProps) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-8" id="docs-scroll-area">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
           {filteredDocs.length > 0 ? (
-            filteredDocs.map((doc, i) => (
-              <Card key={i} className="hover:shadow-md transition-shadow bg-white border-zinc-200">
-                <CardContent className="p-4 space-y-4">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-primary" />
+            filteredDocs.map((doc, i) => {
+              const link = Object.values(doc).find(v => String(v).includes("http")) as string || "#";
+              return (
+                <Card key={i} className="hover:shadow-md transition-shadow bg-white border-zinc-200">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-black uppercase text-zinc-900 truncate">
+                          {String(doc[`col_${clientIdx}`] || "Anexo").toUpperCase()}
+                        </h4>
+                        <p className="text-[9px] font-bold text-zinc-400 truncate">
+                          PROC: {String(doc[`col_${procIdx}`] || "---")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-black uppercase text-zinc-900 truncate">
-                        {String(doc[`col_${clientIdx}`] || "Anexo").toUpperCase()}
-                      </h4>
-                      <p className="text-[9px] font-bold text-zinc-400 truncate">
-                        PROC: {String(doc[`col_${procIdx}`] || "---")}
-                      </p>
+
+                    <div className="bg-zinc-50 rounded p-2 text-[9px] font-mono text-zinc-500 break-all h-12 overflow-hidden">
+                      {link !== "#" ? link : "Documento identificado na planilha."}
                     </div>
-                  </div>
 
-                  <div className="bg-zinc-50 rounded p-2 text-[9px] font-mono text-zinc-500 break-all h-12 overflow-hidden">
-                    Link/Anexo identificado automaticamente na planilha.
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold flex-1">
-                      <ExternalLink className="h-3 w-3 mr-1.5" /> ABRIR
-                    </Button>
-                    <Button size="sm" className="h-8 text-[9px] font-bold bg-zinc-900 text-white flex-1">
-                      <Download className="h-3 w-3 mr-1.5" /> BAIXAR
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold flex-1" asChild>
+                        <a href={link} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3 mr-1.5" /> ABRIR
+                        </a>
+                      </Button>
+                      <Button size="sm" className="h-8 text-[9px] font-bold bg-zinc-900 text-white flex-1">
+                        <Download className="h-3 w-3 mr-1.5" /> DOWNLOAD
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
           ) : (
             <div className="col-span-full h-96 flex flex-col items-center justify-center text-center space-y-4">
               <FileArchive className="h-12 w-12 text-zinc-200" />
-              <p className="text-zinc-400 font-black uppercase text-xs tracking-widest">Nenhum documento digital encontrado.</p>
+              <p className="text-zinc-400 font-black uppercase text-xs tracking-widest">Nenhum documento digital encontrado nos registros ativos.</p>
             </div>
           )}
         </div>

@@ -39,7 +39,7 @@
     margin: 10mm;
   }
 
-  /* Esconde interface do sistema de forma agressiva */
+  /* Limpeza agressiva para impressão */
   header, 
   aside, 
   nav,
@@ -51,7 +51,6 @@
     display: none !important;
   }
 
-  /* Garante que o conteúdo ocupe toda a página */
   html, body {
     height: auto !important;
     overflow: visible !important;
@@ -62,9 +61,8 @@
   }
 
   main, 
-  .flex-1, 
   #report-scroll-area, 
-  #report-container-div {
+  .flex-1 {
     position: static !important;
     display: block !important;
     width: 100% !important;
@@ -81,7 +79,7 @@
     box-shadow: none !important;
   }
 
-  h1, h2, h3 {
+  h1, h2, h3, .text-xl, .text-lg {
     color: black !important;
     page-break-after: avoid;
   }
@@ -92,6 +90,7 @@
   }
 }
 
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
