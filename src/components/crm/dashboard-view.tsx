@@ -18,13 +18,11 @@ interface DashboardProps {
   onReschedule: (row: any) => void;
 }
 
-// Função auxiliar para parsing robusto de datas da planilha
 function parseFlexibleDate(val: string): Date | null {
   if (!val || val === "0") return null;
   const clean = val.trim();
   if (!clean) return null;
 
-  // Formatos comuns em planilhas
   const formats = ['dd/MM/yyyy', 'yyyy-MM-dd', 'dd-MM-yyyy', 'M/d/yyyy'];
   
   for (const fmt of formats) {
@@ -34,7 +32,6 @@ function parseFlexibleDate(val: string): Date | null {
     } catch (e) {}
   }
 
-  // Fallback para Date nativo se os formatos falharem
   const native = new Date(clean);
   if (isValid(native)) return native;
 
@@ -49,18 +46,15 @@ export function DashboardView({ data, headers, onWhatsApp, onReschedule }: Dashb
     
     // MAPEAMENTO DINÂMICO CONFORME ESPECIFICAÇÃO
     // Coluna N (Próximo) = Index 13
+    // Coluna M (Retorno) = Index 12
     // Coluna D (Cliente) = Index 3
     // Coluna F (Processo) = Index 5
     // Coluna C (Status) = Index 2
-    const getIdx = (name: string, fallback: number) => {
-      const idx = headers.findIndex(h => h.toUpperCase().includes(name.toUpperCase()));
-      return idx !== -1 ? idx : fallback;
-    };
-
-    const statusIdx = getIdx("STATUS", 2);
-    const clientIdx = getIdx("CLIENTE", 3);
-    const proxIdx = getIdx("PRÓXIMO", 13); // Padrão Coluna N
-    const procIdx = getIdx("PROCESSO", 5);
+    
+    const statusIdx = 2;
+    const clientIdx = 3;
+    const procIdx = 5;
+    const proxIdx = 13; // Coluna N
 
     let overdueCount = 0;
     let todayContact = 0;
@@ -90,7 +84,7 @@ export function DashboardView({ data, headers, onWhatsApp, onReschedule }: Dashb
       }
     });
 
-    return { overdueCount, todayContact, active, total: data.length, urgentCases, clientIdx, procIdx };
+    return { overdueCount, todayContact, active, total: data.length, urgentCases, clientIdx, procIdx, headers };
   }, [data, headers]);
 
   if (!stats) {
@@ -106,7 +100,7 @@ export function DashboardView({ data, headers, onWhatsApp, onReschedule }: Dashb
     <div className="p-8 space-y-8 bg-zinc-50/30 overflow-y-auto h-full">
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Resumo Operacional</h2>
-        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Baseado na Coluna Próximo (Coluna N)</p>
+        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Mapeamento: Coluna N (Próximo Contato)</p>
       </div>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -168,7 +162,7 @@ export function DashboardView({ data, headers, onWhatsApp, onReschedule }: Dashb
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold" onClick={() => onWhatsApp(row, headers)}>
+                  <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold" onClick={() => onWhatsApp(row, stats.headers)}>
                     <MessageSquare className="h-3.5 w-3.5 mr-2" /> WHATSAPP
                   </Button>
                   <Button size="sm" className="h-8 text-[10px] font-bold bg-zinc-900" onClick={() => onReschedule(row)}>

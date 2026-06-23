@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, Legend, Cell as RechartsCell
 } from "recharts";
 import { 
-  Printer, Download, ImageIcon, Loader2, TrendingUp, Users, Building2
+  Printer, Download, ImageIcon, Loader2, TrendingUp, Users, Building2, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -42,33 +42,33 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
     const statusDist: Record<string, number> = {};
     const tribunals: Record<string, number> = {};
 
-    // Mapeamento Dinâmico de Cabeçalhos
-    const advIdx = headers.findIndex(h => h.toUpperCase().includes("RESPONSÁVEL") || h.toUpperCase() === "ADVOGADO");
-    const escrIdx = headers.findIndex(h => h.toUpperCase().includes("ESCRITÓRIO"));
-    const statusIdx = headers.findIndex(h => h.toUpperCase().includes("STATUS"));
-    const procIdx = headers.findIndex(h => h.toUpperCase().includes("PROCESSO") || h.toUpperCase() === "CNJ");
+    // Mapeamento Dinâmico Fixo conforme solicitado
+    const advIdx = 0;    // Coluna A
+    const escrIdx = 1;   // Coluna B
+    const statusIdx = 2; // Coluna C
+    const procIdx = 5;   // Coluna F
 
     data.forEach(row => {
-      // Responsável - Geralmente Coluna A
-      const adv = String(row[`col_${advIdx !== -1 ? advIdx : 0}`] || "").toUpperCase().trim();
+      // Responsável
+      const adv = String(row[`col_${advIdx}`] || "").toUpperCase().trim();
       if (adv && adv !== "0" && adv !== "RESPONSÁVEL" && adv.length > 2) {
         lawyers[adv] = (lawyers[adv] || 0) + 1;
       }
 
-      // Escritório - Geralmente Coluna B
-      const escr = String(row[`col_${escrIdx !== -1 ? escrIdx : 1}`] || "").toUpperCase().trim();
+      // Escritório
+      const escr = String(row[`col_${escrIdx}`] || "").toUpperCase().trim();
       if (escr && escr !== "0" && escr !== "ESCRITÓRIO" && escr.length > 1) {
         offices[escr] = (offices[escr] || 0) + 1;
       }
 
-      // Status - Geralmente Coluna C
-      const st = String(row[`col_${statusIdx !== -1 ? statusIdx : 2}`] || "").toUpperCase().trim();
+      // Status
+      const st = String(row[`col_${statusIdx}`] || "").toUpperCase().trim();
       if (st && st !== "0" && st !== "STATUS") {
         statusDist[st] = (statusDist[st] || 0) + 1;
       }
 
-      // Tribunal via CNJ - Geralmente Coluna F
-      const fullProc = String(row[`col_${procIdx !== -1 ? procIdx : 5}`] || "").toUpperCase().trim();
+      // Tribunal via CNJ
+      const fullProc = String(row[`col_${procIdx}`] || "").toUpperCase().trim();
       const cnjMatch = fullProc.match(/\.8\.(\d{2})\./);
       if (cnjMatch) {
         const code = cnjMatch[1];
@@ -94,10 +94,9 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return;
     setIsExporting(true);
-    toast({ title: "Iniciando Exportação", description: "Gerando PDF Executivo Local..." });
+    toast({ title: "Iniciando Exportação", description: "Gerando PDF Premium Local..." });
 
     try {
-      // Captura Local Robusta
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
@@ -129,7 +128,11 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
       toast({ title: "PDF Gerado", description: "O download foi concluído com sucesso." });
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Falha na Geração", description: "Ocorreu um erro local. Tente a Impressão Rápida." });
+      toast({ 
+        variant: "destructive", 
+        title: "Erro na Geração PDF", 
+        description: `Falha local: ${error.message}. Tente usar a Impressão Rápida.` 
+      });
     } finally {
       setIsExporting(false);
     }
@@ -144,8 +147,8 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
       link.download = `SyncCRM_Visao_${new Date().getTime()}.png`;
       link.href = canvas.toDataURL();
       link.click();
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível gerar a imagem." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro na Imagem", description: e.message });
     } finally {
       setIsExporting(false);
     }
@@ -154,16 +157,16 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
   if (!stats) return null;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50 overflow-hidden print:bg-white print:overflow-visible">
+    <div className="flex flex-col h-full bg-zinc-50 overflow-hidden">
       <header className="bg-white border-b p-4 shadow-sm shrink-0 z-50 print:hidden">
         <div className="flex flex-col md:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-4">
           <div>
-            <h2 className="text-lg font-black text-zinc-900 uppercase tracking-tighter">BI Gerencial</h2>
+            <h2 className="text-lg font-black text-zinc-900 uppercase tracking-tighter">BI Gerencial Premium</h2>
             <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Base de Dados: {stats.total} registros</p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             <Button variant="outline" size="sm" className="font-black text-[9px] h-9" onClick={() => window.print()} disabled={isExporting}>
-              <Printer className="h-3.5 w-3.5 mr-2" /> IMPRIMIR RÁPIDO
+              <Printer className="h-3.5 w-3.5 mr-2" /> IMPRESSÃO RÁPIDA
             </Button>
             <Button className="bg-zinc-900 hover:bg-zinc-800 text-white font-black text-[9px] h-9" onClick={handleDownloadPDF} disabled={isExporting}>
               {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
@@ -176,12 +179,12 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-zinc-50 print:bg-white print:overflow-visible" id="report-scroll-area">
+      <div className="flex-1 overflow-y-auto bg-zinc-50 p-8" id="report-scroll-area">
         <div 
           ref={reportRef} 
-          className="p-8 space-y-8 max-w-7xl mx-auto w-full print:p-0 print:m-0"
+          className="space-y-8 max-w-7xl mx-auto w-full"
         >
-          {/* Header de Impressão (Apenas no PDF) */}
+          {/* Header de Impressão */}
           <div className="hidden print:flex flex-col items-center justify-center h-[120px] border-b-2 border-black mb-10">
             <h1 className="text-3xl font-black uppercase tracking-tighter">SyncCRM Executive Intelligence</h1>
             <p className="text-[10px] font-mono mt-2">Relatório gerado em: {new Date().toLocaleString()}</p>
@@ -201,7 +204,7 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Users className="h-4 w-4 text-zinc-400" />
-                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Responsáveis Ativos</p>
+                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Responsáveis Ativos (Coluna A)</p>
                 </div>
                 <p className="text-4xl font-black text-blue-600">{stats.lawyers.length}</p>
               </CardContent>
@@ -210,7 +213,7 @@ export function ReportsView({ data, headers }: ReportsViewProps) {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 mb-2">
                   <Building2 className="h-4 w-4 text-zinc-400" />
-                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Escritórios Identificados</p>
+                  <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Escritórios Identificados (Coluna B)</p>
                 </div>
                 <p className="text-4xl font-black text-green-600">{stats.offices.length}</p>
               </CardContent>
