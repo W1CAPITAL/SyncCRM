@@ -1,0 +1,113 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 221 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 221 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 40% 10%;
+    --primary: 221 80% 45%;
+    --primary-foreground: 210 25% 98%;
+    --secondary: 221 20% 90%;
+    --secondary-foreground: 221 80% 30%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 221 20% 45%;
+    --accent: 190 100% 53%;
+    --accent-foreground: 221 80% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 221 20% 90%;
+    --input: 221 20% 90%;
+    --ring: 221 80% 45%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-body; }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  /* Esconde interface do sistema */
+  header, 
+  aside, 
+  nav,
+  button,
+  .no-print,
+  .print-hidden,
+  .sidebar-inset header,
+  [role="tooltip"],
+  .filter-bar {
+    display: none !important;
+  }
+
+  /* Garante que o corpo do relatório seja visível e ocupe toda a página */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main, 
+  .flex-1, 
+  #report-scroll-area, 
+  #report-container-div,
+  .sidebar-inset {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .card {
+    page-break-inside: avoid;
+    margin-bottom: 20px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    display: block !important;
+  }
+
+  h2, h3, .text-4xl {
+    color: black !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
