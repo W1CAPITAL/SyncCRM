@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Card } from "@/components/ui/card";
 import { 
   Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
-  BarChart3, FileArchive, Settings, Loader2, Search, Edit2, Layers, Copyright,
-  BrainCircuit, DownloadCloud
+  BarChart3, FileArchive, Settings, Search, Edit2, Layers,
+  BrainCircuit, ShieldCheck
 } from "lucide-react";
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
@@ -83,7 +83,6 @@ export function SheetExplorer() {
   const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni'>('settings');
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -91,7 +90,6 @@ export function SheetExplorer() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [localRecords, setLocalRecords] = useState<any[]>([]);
 
-  // Carrega ID salvo localmente
   useEffect(() => {
     const savedId = localStorage.getItem('last_spreadsheet_id');
     const savedHeaders = localStorage.getItem('last_headers');
@@ -123,11 +121,10 @@ export function SheetExplorer() {
   const handleMirrorSheets = async () => {
     if (!spreadsheetId) return;
     setIsSyncing(true);
-    setSyncProgress(0);
     try {
       const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
       const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error("Planilha inacessível. Verifique se está pública ou com o ID correto.");
+      if (!res.ok) throw new Error("Planilha inacessível.");
       const csvText = await res.text();
       const values = parseCSV(csvText);
       const currentHeaders = values[0];
@@ -149,10 +146,10 @@ export function SheetExplorer() {
       localStorage.setItem('last_spreadsheet_id', spreadsheetId);
       localStorage.setItem('last_headers', JSON.stringify(currentHeaders));
       
-      toast({ title: "Base Carregada Localmente", description: `${formattedRecords.length} registros capturados com sucesso.` });
+      toast({ title: "Base Sincronizada", description: `${formattedRecords.length} registros capturados.` });
       setView('dashboard');
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro no Carregamento", description: e.message });
+      toast({ variant: "destructive", title: "Erro na Sincronização", description: e.message });
     } finally { setIsSyncing(false); }
   };
 
@@ -209,9 +206,9 @@ export function SheetExplorer() {
               </SidebarMenu>
             </SidebarContent>
             <SidebarFooter className="p-6 border-t border-zinc-900 group-data-[collapsible=icon]:hidden">
-              <div className="flex flex-col gap-2">
-                <p className="text-[11px] font-black text-zinc-100 uppercase tracking-tight">W1 Capital</p>
-                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Davi Alves Figueredo</p>
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-black text-zinc-100 uppercase tracking-tight">© Todos os direitos Reservados</p>
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest">W1 Capital</p>
               </div>
             </SidebarFooter>
           </Sidebar>
@@ -220,31 +217,51 @@ export function SheetExplorer() {
             <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 shadow-sm">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
-                <Badge variant="outline" className="text-[10px] font-black uppercase border-zinc-300">SyncCRM V12 Independent</Badge>
+                <Badge variant="outline" className="text-[10px] font-black uppercase border-zinc-300">SyncCRM Elite</Badge>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-zinc-900 uppercase">Analista Sênior</span>
+                <span className="text-[10px] font-black text-zinc-900 uppercase">Analista Consultor Sênior</span>
                 <Button variant="ghost" size="sm" className="h-9 text-[10px] font-black uppercase" onClick={handleLogout}><LogOut className="h-3.5 w-3.5 mr-2" /> Sair</Button>
               </div>
             </header>
 
             <main className="flex-1 relative bg-zinc-50 overflow-hidden flex flex-col">
               {view === 'settings' ? (
-                <div className="h-full p-8 flex flex-col items-center justify-center space-y-6">
-                   <Card className="w-full max-w-lg p-10 space-y-8 shadow-2xl border-2 bg-white rounded-3xl">
-                    <div className="space-y-2 text-center">
-                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-xl"><Database className="h-8 w-8" /></div>
-                      <h2 className="text-3xl font-black uppercase tracking-tighter">JD Usuário</h2>
-                      <p className="text-[11px] text-zinc-400 font-bold uppercase tracking-[0.3em]">Gestão Local Independente</p>
-                    </div>
-                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-zinc-500">Google Spreadsheet ID</Label>
-                      <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="ID da URL da sua planilha" className="h-14 font-mono text-sm border-2 rounded-xl" />
-                    </div>
-                    <Button className="w-full h-16 bg-zinc-900 hover:bg-zinc-800 font-black text-white uppercase tracking-widest rounded-xl" onClick={handleMirrorSheets} disabled={isSyncing}>
-                      {isSyncing ? <span className="flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /> CARREGANDO...</span> : "ATIVAR SYNC INDEPENDENTE"}
-                    </Button>
-                   </Card>
+                <div className="h-full p-8 overflow-y-auto space-y-8">
+                  <div className="max-w-xl mx-auto space-y-6">
+                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
+                      <div className="space-y-2 text-center">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-md"><Database className="h-7 w-7" /></div>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">JD Usuário - Planilha</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gestão de Dados Silo Privado</p>
+                      </div>
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-zinc-500">Google Spreadsheet ID</Label>
+                        <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="ID da URL da sua planilha" className="h-12 font-mono text-xs border-2" />
+                      </div>
+                      <Button className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 font-black text-white text-xs uppercase tracking-widest" onClick={handleMirrorSheets} disabled={isSyncing}>
+                        {isSyncing ? "CARREGANDO..." : "ATIVAR SYNC INDEPENDENTE"}
+                      </Button>
+                    </Card>
+
+                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
+                      <div className="space-y-2 text-center">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md"><BrainCircuit className="h-7 w-7" /></div>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor Estratégico AI</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">OpenRouter + OpenAI Ativo</p>
+                      </div>
+                      <div className="p-4 border-2 rounded-xl bg-zinc-50 flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                            <ShieldCheck className="h-5 w-5 text-zinc-900" />
+                            <span className="text-xs font-black uppercase">Conexão Segura Ativa</span>
+                         </div>
+                         <Badge className="bg-zinc-900 text-white text-[9px] font-black">GPT-4O MINI</Badge>
+                      </div>
+                      <p className="text-[10px] text-zinc-400 italic text-center">
+                        O SyncCRM opera em modo 100% independente utilizando o motor OpenAI via OpenRouter.
+                      </p>
+                    </Card>
+                  </div>
                 </div>
               ) : (
                 <div className="h-full flex flex-col overflow-hidden">
@@ -256,11 +273,10 @@ export function SheetExplorer() {
                       </div>
                       <div className="flex gap-2">
                          <Button variant="default" size="sm" className="h-10 text-[10px] font-black uppercase bg-zinc-900" onClick={handleMirrorSheets} disabled={isSyncing}>
-                           {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <DownloadCloud className="h-4 w-4 mr-2" />}
-                           ATUALIZAR BASE
+                           {isSyncing ? "ATUALIZANDO..." : "ATUALIZAR BASE"}
                          </Button>
                          <Badge className="bg-white border-2 border-zinc-200 text-zinc-900 h-10 px-4 flex items-center gap-2 font-black">
-                           {activeRecords.length} REGISTROS CARREGADOS
+                           {activeRecords.length} REGISTROS
                          </Badge>
                       </div>
                     </div>
@@ -273,7 +289,7 @@ export function SheetExplorer() {
                      view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
                      view === 'operations' ? (
                        <div className="h-full flex flex-col bg-white">
-                         <div className="flex-1 overflow-auto scroll-black">
+                         <div className="flex-1 overflow-auto">
                            <Table className="w-max min-w-full border-separate border-spacing-0">
                              <TableHeader className="bg-zinc-100 sticky top-0 z-20">
                                <TableRow>
@@ -306,11 +322,11 @@ export function SheetExplorer() {
           </SidebarInset>
 
           <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-            <DialogContent className="max-w-3xl scroll-black overflow-y-auto max-h-[90vh] bg-white border-2 rounded-3xl">
+            <DialogContent className="max-w-3xl overflow-y-auto max-h-[90vh] bg-white border-2">
               <DialogHeader className="border-b pb-6">
                 <DialogTitle className="font-black uppercase text-xl flex items-center gap-3">
                   <div className="p-2 bg-zinc-900 rounded-lg text-white"><Edit2 className="h-5 w-5" /></div>
-                  Editor Veredito
+                  Editor Registro
                 </DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-x-8 gap-y-6 py-8">
@@ -325,14 +341,14 @@ export function SheetExplorer() {
                  ))}
               </div>
               <DialogFooter className="sticky bottom-0 bg-white pt-6 border-t flex gap-4">
-                <Button variant="outline" className="h-14 font-black text-xs flex-1 rounded-xl" onClick={() => setIsEditorOpen(false)}>DESCARTAR</Button>
-                <Button className="bg-zinc-900 text-white font-black h-14 flex-1 rounded-xl" onClick={() => { 
+                <Button variant="outline" className="h-14 font-black text-xs flex-1" onClick={() => setIsEditorOpen(false)}>DESCARTAR</Button>
+                <Button className="bg-zinc-900 text-white font-black h-14 flex-1" onClick={() => { 
                   if (editingRow) {
                     setLocalRecords(prev => prev.map(r => r.id === editingRow.id ? editingRow : r));
-                    toast({ title: "Registro Atualizado", description: "Alteração salva localmente. Sincronize com a planilha para persistir." });
+                    toast({ title: "Registro Atualizado", description: "Alteração salva localmente." });
                     setIsEditorOpen(false);
                   }
-                }}>SALVAR ALTERAÇÕES</Button>
+                }}>SALVAR</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

@@ -1,24 +1,24 @@
+
 'use server';
 
 /**
- * @fileOverview Motor de Programação Veredito IA v3.5
- * Integração DataJud (CNJ) + Lógica Cognitiva Gemini 2.5.
+ * @fileOverview Motor de Programação Veredito AI v12.0 (OpenAI Powered)
+ * Operação exclusiva via OpenRouter.
  */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { callOpenRouter, safeJsonParse } from '@/lib/openrouter';
 
 const DATAJUD_API_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
 
 /**
- * Identifica o alias do tribunal a partir do número CNJ
+ * Identifica o tribunal pelo CNJ para roteamento na API do DataJud
  */
 function getCourtFromCNJ(cnj: string) {
   const clean = cnj.replace(/\D/g, '');
   if (clean.length < 20) return { alias: 'tjsp', name: 'TJSP' };
 
-  const j = clean.substring(13, 14); // Justiça
-  const tr = clean.substring(14, 16); // Tribunal/Região
+  const j = clean.substring(13, 14);
+  const tr = clean.substring(14, 16);
 
   if (j === '8') {
     const states: Record<string, string> = {
@@ -29,14 +29,17 @@ function getCourtFromCNJ(cnj: string) {
       '18': 'tjpi', '20': 'tjrn', '22': 'tjro', '23': 'tjrr', '24': 'tjsc',
       '25': 'tjse', '27': 'tjto'
     };
-    return { alias: states[tr] || 'tjsp', name: 'Justiça Estadual' };
+    return { alias: states[tr] || 'tjsp', name: states[tr]?.toUpperCase() || 'TJSP' };
   }
-  if (j === '4') return { alias: 'trf' + tr, name: 'Justiça Federal' };
-  if (j === '5') return { alias: 'trt' + tr, name: 'Justiça do Trabalho' };
+  if (j === '4') return { alias: 'trf' + tr, name: 'TRF' + tr };
+  if (j === '5') return { alias: 'trt' + tr, name: 'TRT' + tr };
   
   return { alias: 'tjsp', name: 'Tribunal de Justiça' };
 }
 
+/**
+ * Busca dados técnicos na API Pública do DataJud (CNJ)
+ */
 export async function fetchProcessData(cnj: string) {
   const courtInfo = getCourtFromCNJ(cnj);
   const url = `https://api-publica.datajud.cnj.jus.br/api_publica_${courtInfo.alias}/_search`;
@@ -75,66 +78,92 @@ export async function fetchProcessData(cnj: string) {
   }
 }
 
-const AnalysisOutputSchema = z.object({
-  sintese: z.string().describe('Resumo executivo do caso.'),
-  resolucao: z.string().describe('Sugestão de próximo passo ou resolução.'),
-  dica: z.string().describe('Dica estratégica para o advogado.'),
-});
+/**
+ * Auxiliar para garantir que valores sejam strings limpas
+ */
+function ensureString(val: any): string {
+  if (val === null || val === undefined) return "Não informado";
+  if (typeof val === 'string') return val;
+  if (Array.isArray(val)) return val.map(item => `• ${ensureString(item)}`).join("\n");
+  if (typeof val === 'object') {
+    const content = val.resumo || val.risco || val.sugestao || val.texto || val.justificativa || val.nome || val.descricao;
+    if (content) return ensureString(content);
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
 
-const analyzeProcessPrompt = ai.definePrompt({
-  name: 'analyzeProcessPrompt',
-  input: { schema: z.object({ rawData: z.any() }) },
-  output: { schema: AnalysisOutputSchema },
-  prompt: `Você é um Consultor Jurídico Sênior da W1 Capital.
-Analise os seguintes dados técnicos de um processo vindos do DataJud (CNJ):
-{{{json rawData}}}
-
-Forneça:
-1. Uma síntese clara da situação atual.
-2. Uma sugestão técnica de resolução ou próximo passo.
-3. Uma dica estratégica baseada no tribunal ou tipo de processo.
-
-Seja direto, profissional e focado em resultados rápidos.`,
-});
-
+/**
+ * Executa o fluxo de análise cognitiva Veredito AI via OpenRouter
+ */
 export async function executarVereditoAI(cnj: string) {
   const cleanCnj = cnj.trim();
-  if (!cleanCnj) return { sintese: "CNJ inválido.", dados: { hits: [] } };
+  if (!cleanCnj) return { success: false, error: "CNJ inválido." };
 
   const dados = await fetchProcessData(cleanCnj);
   
   if (dados.success && dados.hits.length > 0) {
-    const { output } = await analyzeProcessPrompt({ rawData: dados.hits[0] });
-    return {
-      sintese: output?.sintese || "Dados recuperados com sucesso.",
-      resolucao: output?.resolucao || "Aguardando análise profunda.",
-      dica: output?.dica || "Mantenha o monitoramento ativo.",
-      dados,
-      timestamp: new Date().toISOString()
+    const rawProcess = dados.hits[0]._source;
+    
+    const metadata = {
+      orgao: ensureString(rawProcess.orgaoJulgador),
+      classe: ensureString(rawProcess.classe),
+      tribunal: ensureString(rawProcess.tribunal || dados.court),
+      grau: ensureString(rawProcess.grau || "G1"),
+      ultimaAtualizacao: rawProcess.dataHoraUltimaAtualizacao ? new Date(rawProcess.dataHoraUltimaAtualizacao).toLocaleString('pt-BR') : "Desconhecida"
     };
+
+    const promptText = `Você é um Consultor Jurídico Sênior da W1 Capital.
+Analise os seguintes dados técnicos de um processo do DataJud (CNJ):
+${JSON.stringify(rawProcess)}
+
+Sua resposta deve ser estritamente um objeto JSON puro com estas chaves exatas:
+"resumo": Um texto corrido resumindo o caso e movimentações.
+"risco": Um texto corrido analisando o risco técnico.
+"sugestao": Um texto corrido ou lista simples com as próximas ações.
+
+IMPORTANTE: Responda apenas com o JSON. Não use Markdown ou textos extras.`;
+
+    try {
+      const openRouterRes = await callOpenRouter(promptText, true);
+      const parsed = safeJsonParse(openRouterRes);
+      
+      if (parsed) {
+        return {
+          success: true,
+          cnj: cleanCnj,
+          parecer: {
+            resumo: ensureString(parsed.resumo),
+            risco: ensureString(parsed.risco),
+            sugestao: ensureString(parsed.sugestao)
+          },
+          metadata,
+          timestamp: new Date().toISOString()
+        };
+      }
+    } catch (e: any) {
+      return { success: false, error: `Erro no Motor AI: ${e.message}`, timestamp: new Date().toISOString() };
+    }
   }
 
   return {
-    sintese: dados.success ? "Nenhuma movimentação pública detalhada encontrada para este CNJ." : `Erro no motor: ${dados.error}`,
-    resolucao: "Verificar se o processo corre em segredo de justiça ou se o tribunal está offline.",
-    dica: "Tente consultar o site do tribunal diretamente para detalhes não públicos.",
-    dados,
+    success: false,
+    error: "Nenhum registro público detalhado foi encontrado para este CNJ.",
     timestamp: new Date().toISOString()
   };
 }
 
+/**
+ * Gera relatórios estratégicos baseados em prompts livres
+ */
 export async function gerarRelatorioEstrategico(prompt: string) {
-  const reportPrompt = ai.definePrompt({
-    name: 'reportPrompt',
-    input: { schema: z.object({ texto: z.string() }) },
-    output: { schema: z.string() },
-    prompt: `Você é o Arquiteto de Soluções da W1 Capital. 
-Gere um relatório estratégico de alta fidelidade baseado no seguinte comando:
-{{{texto}}}
+  const promptText = `Você é o Arquiteto de Soluções da W1 Capital. 
+Gere um relatório estratégico de alta fidelidade baseado no comando:
+${prompt}`;
 
-Use uma linguagem executiva, estruturada em tópicos e com foco em conformidade e eficiência técnica.`,
-  });
-
-  const { output } = await reportPrompt({ texto: prompt });
-  return output || "Falha ao gerar relatório.";
+  try {
+    return await callOpenRouter(promptText, false);
+  } catch (e) {
+    return "Erro de conexão com o motor estratégico.";
+  }
 }
