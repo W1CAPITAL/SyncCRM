@@ -51,7 +51,11 @@ export function OmniReportView() {
       
       if (data.success) {
         setResult(data);
-        toast({ title: "Análise Cognitiva Concluída" });
+        if (data.warning) {
+          toast({ variant: "default", title: "Aviso", description: "Dados técnicos obtidos, mas análise estratégica limitada." });
+        } else {
+          toast({ title: "Análise Concluída" });
+        }
       } else {
         toast({ variant: "destructive", title: "Busca DataJud", description: String(data.error) });
       }
@@ -104,9 +108,9 @@ export function OmniReportView() {
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-2xl font-black text-zinc-900 uppercase tracking-tighter flex items-center gap-2">
-              OmniReport <Badge className="bg-primary text-[9px]">v4.0 Elite</Badge>
+              OmniReport <Badge className="bg-primary text-[9px]">v4.5 Clean</Badge>
             </h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Painel Estratégico Analisador Inteligente</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Análise Estratégica Independente</p>
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="border-zinc-200 text-zinc-600 bg-white px-3 py-1 font-black flex items-center gap-2">
@@ -125,8 +129,8 @@ export function OmniReportView() {
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-primary rounded-lg"><BrainCircuit className="h-6 w-6 text-white" /></div>
                   <div>
-                    <CardTitle className="text-lg font-black uppercase tracking-tight">Veredito AI (Busca 360)</CardTitle>
-                    <CardDescription className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Integração Direta DataJud + OpenAI</CardDescription>
+                    <CardTitle className="text-lg font-black uppercase tracking-tight">Veredito AI</CardTitle>
+                    <CardDescription className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Análise de Dados Jurídicos</CardDescription>
                   </div>
                 </div>
               </div>
@@ -140,6 +144,7 @@ export function OmniReportView() {
                     className="h-14 pl-12 font-mono text-sm border-2 focus:border-zinc-900"
                     value={cnj}
                     onChange={(e) => setCnj(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleVereditoSearch()}
                   />
                 </div>
                 <Button 
@@ -174,7 +179,7 @@ export function OmniReportView() {
                            <h4 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Resumo Estruturado</h4>
                          </div>
                          <p className="text-xs font-bold text-zinc-700 leading-relaxed whitespace-pre-line border-l-4 border-zinc-100 pl-4">
-                           {String(result.parecer.resumo)}
+                           {String(result?.parecer?.resumo || "Resumo técnico indisponível.")}
                          </p>
                        </section>
 
@@ -184,7 +189,7 @@ export function OmniReportView() {
                            <h4 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Análise de Risco</h4>
                          </div>
                          <p className="text-xs font-black text-zinc-900 leading-relaxed whitespace-pre-line bg-amber-50/50 p-4 rounded-xl border border-amber-100">
-                           {String(result.parecer.risco)}
+                           {String(result?.parecer?.risco || "Análise de risco indisponível.")}
                          </p>
                        </section>
 
@@ -194,7 +199,7 @@ export function OmniReportView() {
                            <h4 className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Sugestão Estratégica</h4>
                          </div>
                          <p className="text-xs font-bold text-zinc-800 leading-relaxed whitespace-pre-line border-l-4 border-primary/20 pl-4">
-                           {String(result.parecer.sugestao)}
+                           {String(result?.parecer?.sugestao || "Sugestão estratégica indisponível.")}
                          </p>
                        </section>
 
@@ -205,22 +210,28 @@ export function OmniReportView() {
                          </div>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                            {[
-                             { icon: Building, label: "Órgão Julgador", value: result.metadata.orgao },
-                             { icon: FileText, label: "Classe", value: result.metadata.classe },
-                             { icon: ShieldCheck, label: "Tribunal", value: result.metadata.tribunal },
-                             { icon: Layers, label: "Grau", value: result.metadata.grau },
-                             { icon: Clock, label: "Última Atualização", value: result.metadata.ultimaAtualizacao }
+                             { icon: Building, label: "Órgão Julgador", value: result?.metadata?.orgao },
+                             { icon: FileText, label: "Classe", value: result?.metadata?.classe },
+                             { icon: ShieldCheck, label: "Tribunal", value: result?.metadata?.tribunal },
+                             { icon: Layers, label: "Grau", value: result?.metadata?.grau },
+                             { icon: Clock, label: "Última Atualização", value: result?.metadata?.ultimaAtualizacao }
                            ].map((meta, i) => (
                              <div key={i} className="flex flex-col gap-1 p-3 bg-zinc-50 rounded-lg">
                                <span className="text-[8px] font-black text-zinc-400 uppercase tracking-tighter flex items-center gap-1">
                                  <meta.icon className="h-2.5 w-2.5" /> {meta.label}
                                </span>
                                <span className="text-[10px] font-black text-zinc-900 uppercase truncate">
-                                 {String(meta.value)}
+                                 {String(meta.value || "Não informado")}
                                </span>
                              </div>
                            ))}
                          </div>
+                       </div>
+
+                       <div className="pt-6 mt-6 border-t text-center">
+                         <p className="text-[9px] font-bold text-zinc-400 uppercase italic">
+                           Análise autenticada por W1 Capital Intelligence sob supervisão de Davi Alves Figueredo.
+                         </p>
                        </div>
                     </div>
                   </div>
@@ -270,7 +281,7 @@ export function OmniReportView() {
                   </div>
                   <div className="flex justify-between text-[9px] font-black uppercase opacity-60">
                     <span>Certificação</span>
-                    <span>W1 ELITE v4.0</span>
+                    <span>W1 ELITE v4.5</span>
                   </div>
                 </div>
               </CardContent>
