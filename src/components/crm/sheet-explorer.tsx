@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -244,21 +243,16 @@ export function SheetExplorer() {
                       </Button>
                     </Card>
 
-                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
-                      <div className="space-y-2 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md"><BrainCircuit className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor Estratégico AI</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">OpenRouter + OpenAI Ativo</p>
+                    <Card className="p-8 space-y-4 shadow-lg border-2 bg-white rounded-2xl border-zinc-100">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-zinc-900 rounded-lg"><ShieldCheck className="h-5 w-5 text-white" /></div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Status da Infraestrutura</p>
+                          <p className="text-xs font-black uppercase">OpenRouter AI Ativo (GPT-4o Mini)</p>
+                        </div>
                       </div>
-                      <div className="p-4 border-2 rounded-xl bg-zinc-50 flex items-center justify-between">
-                         <div className="flex items-center gap-3">
-                            <ShieldCheck className="h-5 w-5 text-zinc-900" />
-                            <span className="text-xs font-black uppercase">Conexão Segura Ativa</span>
-                         </div>
-                         <Badge className="bg-zinc-900 text-white text-[9px] font-black">GPT-4O MINI</Badge>
-                      </div>
-                      <p className="text-[10px] text-zinc-400 italic text-center">
-                        O SyncCRM opera em modo 100% independente utilizando o motor OpenAI via OpenRouter.
+                      <p className="text-[10px] text-zinc-400 italic leading-relaxed uppercase">
+                        O SyncCRM opera agora em modo 100% independente utilizando OpenRouter AI. Autonomia total da plataforma garantida.
                       </p>
                     </Card>
                   </div>

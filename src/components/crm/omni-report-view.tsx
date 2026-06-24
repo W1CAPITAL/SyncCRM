@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -6,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { 
   Search, BrainCircuit, FileText, ShieldCheck, Database, 
   Terminal, Loader2, Save, History, 
@@ -14,7 +12,7 @@ import {
 } from "lucide-react";
 import { executarVereditoAI, gerarRelatorioEstrategico } from "@/ai/veredito-ai-engine";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -55,10 +53,10 @@ export function OmniReportView() {
         setResult(data);
         toast({ title: "Análise Cognitiva Concluída" });
       } else {
-        toast({ variant: "destructive", title: "Busca DataJud", description: data.error });
+        toast({ variant: "destructive", title: "Busca DataJud", description: String(data.error) });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro no Motor AI" });
+      toast({ variant: "destructive", title: "Erro no Motor AI", description: e.message });
     } finally {
       setIsSearching(false);
     }
@@ -71,8 +69,8 @@ export function OmniReportView() {
       const res = await gerarRelatorioEstrategico(reportText);
       setReportResult(res);
       toast({ title: "Relatório Gerado" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro na Geração" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Erro na Geração", description: e.message });
     } finally {
       setIsGenerating(false);
     }
@@ -85,7 +83,7 @@ export function OmniReportView() {
       cnj: result.cnj,
       parecer: result.parecer,
       metadata: result.metadata,
-      timestamp: result.timestamp
+      timestamp: Date.now()
     };
     const updated = [newInsight, ...insights];
     setInsights(updated);

@@ -1,7 +1,6 @@
-
 /**
  * @fileOverview Configurações centrais para o OpenRouter AI.
- * Operação exclusiva via OpenAI GPT-4o Mini.
+ * Operação exclusiva via OpenAI GPT-4o Mini (Independente).
  */
 
 export const OPENROUTER_MODEL = "openai/gpt-4o-mini";
@@ -9,7 +8,7 @@ export const OPENROUTER_API_KEY = 'sk-or-v1-6c1bec5506f89843cadc6cfb63b962a94ba3
 
 /**
  * Realiza uma chamada direta para a API do OpenRouter via fetch.
- * Independente de bibliotecas externas como Genkit.
+ * Purgação total de Genkit e Firebase.
  */
 export async function callOpenRouter(promptText: string, jsonMode: boolean = false) {
   try {
@@ -26,7 +25,7 @@ export async function callOpenRouter(promptText: string, jsonMode: boolean = fal
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um Consultor Estratégico Sênior da W1 Capital. Responda de forma clara, profissional e técnica.' + (jsonMode ? ' Responda estritamente em formato JSON puro, sem markdown, sem explicações extras.' : '')
+            content: 'Você é um Consultor Estratégico Sênior da W1 Capital. Responda de forma clara, profissional e técnica. Se solicitado JSON, retorne APENAS o JSON puro sem markdown.'
           },
           { role: 'user', content: promptText }
         ],
@@ -44,21 +43,27 @@ export async function callOpenRouter(promptText: string, jsonMode: boolean = fal
     return data.choices?.[0]?.message?.content || '';
   } catch (e: any) {
     console.error('OpenRouter Error:', e.message);
-    throw e;
+    throw new Error(`ERRO_API: ${e.message}`);
   }
 }
 
 /**
- * Limpa blocos de código markdown e converte para objeto.
+ * Limpa blocos de código markdown e converte para objeto de forma robusta.
  */
 export function safeJsonParse(text: string) {
   try {
     if (!text) return null;
+    
     const cleanText = text
       .replace(/```json/g, '')
       .replace(/```/g, '')
       .trim();
-    return JSON.parse(cleanText);
+      
+    const parsed = JSON.parse(cleanText);
+    
+    if (parsed.output && typeof parsed.output === 'object') return parsed.output;
+    
+    return parsed;
   } catch (e) {
     console.error("Falha ao parsear JSON:", text);
     return null;

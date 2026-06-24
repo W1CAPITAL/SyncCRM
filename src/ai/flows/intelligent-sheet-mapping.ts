@@ -1,9 +1,7 @@
-
 'use server';
 /**
- * @fileOverview Mapeador Inteligente de Planilhas (OpenRouter Native)
+ * @fileOverview Mapeador Inteligente - Independente de Genkit.
  */
-
 import { callOpenRouter, safeJsonParse } from '@/lib/openrouter';
 
 export type IntelligentSheetMappingInput = {
@@ -11,25 +9,12 @@ export type IntelligentSheetMappingInput = {
   crmFields: string[];
 };
 
-export type IntelligentSheetMappingOutput = Array<{
-  sheetHeader: string;
-  crmField: string;
-  confidenceScore: number;
-  reasoning: string;
-}>;
-
-export async function intelligentSheetMapping(input: IntelligentSheetMappingInput): Promise<IntelligentSheetMappingOutput> {
-  const prompt = `Mapeie os cabeçalhos da planilha para os campos do CRM.
-Headers: ${JSON.stringify(input.sheetHeaders)}
-Fields: ${JSON.stringify(input.crmFields)}
-
-Retorne um array JSON de objetos: {sheetHeader, crmField, confidenceScore, reasoning}.`;
-
+export async function intelligentSheetMapping(input: IntelligentSheetMappingInput) {
+  const prompt = `Mapeie cabeçalhos: ${JSON.stringify(input.sheetHeaders)} para campos: ${JSON.stringify(input.crmFields)}. Retorne array JSON: {sheetHeader, crmField, confidenceScore, reasoning}.`;
   try {
-    const response = await callOpenRouter(prompt, true);
-    return safeJsonParse(response) || [];
+    const res = await callOpenRouter(prompt, true);
+    return safeJsonParse(res) || [];
   } catch (e) {
-    console.error('Mapping Error:', e);
     return [];
   }
 }
