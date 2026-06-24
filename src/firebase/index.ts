@@ -1,25 +1,21 @@
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { firebaseConfig } from './config';
+/**
+ * ARQUIVO DE COMPATIBILIDADE - MODO INDEPENDENTE V12
+ * Este arquivo foi mantido para evitar erros de importação, mas agora retorna cascas vazias.
+ * O SyncCRM não depende mais do Firebase Firestore, Auth ou Storage.
+ */
 
 export function initializeFirebase() {
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const firestore = getFirestore(app);
-
-  return { app, auth, firestore };
+  return { app: {}, auth: {}, firestore: {} };
 }
 
-export * from './provider';
-export * from './client-provider';
-export * from './auth/use-user';
-export * from './firestore/use-collection';
-export * from './firestore/use-doc';
+export const useUser = () => ({ user: { displayName: "Analista Sênior" }, loading: false });
+export const useAuth = () => ({});
+export const useFirestore = () => ({});
+export const useCollection = (query: any) => ({ data: [], loading: false, error: null });
+export const useDoc = (ref: any) => ({ data: null, loading: false, error: null });
 
-export const googleProvider = new GoogleAuthProvider();
-// Escopos críticos para acesso total a planilhas
-googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets');
-googleProvider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
-googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+export const googleProvider = {
+  setCustomParameters: () => {},
+  addScope: () => {}
+};

@@ -1,14 +1,16 @@
+
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { 
   Search, BrainCircuit, FileText, ShieldCheck, Database, 
-  Terminal, Loader2, Sparkles, ChevronRight, History, 
-  LineChart, CloudLightning, Lock, Copyright, Lightbulb,
+  Terminal, Loader2, Sparkles, History, 
+  Lock, Copyright, Lightbulb,
   Zap, Save, Trash2
 } from "lucide-react";
 import { executarVereditoAI, gerarRelatorioEstrategico } from "@/ai/veredito-ai-engine";
@@ -16,13 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUser, useFirestore, useCollection } from "@/firebase";
-import { collection, addDoc, doc, deleteDoc, query, orderBy } from "firebase/firestore";
 
 export function OmniReportView() {
   const { toast } = useToast();
-  const { user } = useUser();
-  const db = useFirestore();
   const [cnj, setCnj] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -36,12 +34,13 @@ export function OmniReportView() {
   const [reportResult, setReportResult] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Armazém Cloud (Insights)
-  const insightsQuery = React.useMemo(() => {
-    if (!db || !user) return null;
-    return query(collection(db, "users", user.uid, "insights"), orderBy("timestamp", "desc"));
-  }, [db, user]);
-  const { data: insights } = useCollection(insightsQuery);
+  // Armazém Local (Substituindo Cloud Firestore)
+  const [insights, setInsights] = useState<any[]>([]);
+
+  useEffect(() => {
+    const savedInsights = localStorage.getItem('crm_insights');
+    if (savedInsights) setInsights(JSON.parse(savedInsights));
+  }, []);
 
   const handleVereditoSearch = async () => {
     const cleanCnj = cnj.trim();
@@ -80,29 +79,26 @@ export function OmniReportView() {
     }
   };
 
-  const saveInsight = async () => {
-    if (!result || !user || !db) return;
-    try {
-      await addDoc(collection(db, "users", user.uid, "insights"), {
-        cnj: cnj,
-        sintese: result.sintese,
-        dica: result.dica,
-        timestamp: new Date().toISOString()
-      });
-      toast({ title: "Insight Salvo", description: "Armazenado no seu silo SaaS." });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro ao Salvar" });
-    }
+  const saveInsight = () => {
+    if (!result) return;
+    const newInsight = {
+      id: `insight_${Date.now()}`,
+      cnj: cnj,
+      sintese: result.sintese,
+      dica: result.dica,
+      timestamp: new Date().toISOString()
+    };
+    const updated = [newInsight, ...insights];
+    setInsights(updated);
+    localStorage.setItem('crm_insights', JSON.stringify(updated));
+    toast({ title: "Insight Salvo", description: "Armazenado localmente no seu silo seguro." });
   };
 
-  const deleteInsight = async (id: string) => {
-    if (!user || !db) return;
-    try {
-      await deleteDoc(doc(db, "users", user.uid, "insights", id));
-      toast({ title: "Registro Removido" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro ao Excluir" });
-    }
+  const deleteInsight = (id: string) => {
+    const updated = insights.filter(i => i.id !== id);
+    setInsights(updated);
+    localStorage.setItem('crm_insights', JSON.stringify(updated));
+    toast({ title: "Registro Removido" });
   };
 
   return (
@@ -111,13 +107,13 @@ export function OmniReportView() {
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-2xl font-black text-zinc-900 uppercase tracking-tighter flex items-center gap-2">
-              OmniReport <Badge className="bg-primary text-[9px]">v3.5</Badge>
+              OmniReport <Badge className="bg-primary text-[9px]">v3.5 Independent</Badge>
             </h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Painel Estratégico Analisador Inteligente</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Painel Estratégico Analisador Independente</p>
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="border-green-200 text-green-600 bg-green-50 px-3 py-1 font-black flex items-center gap-2">
-              <ShieldCheck className="h-3 w-3" /> CONFORMIDADE GLOBAL ATIVA
+              <ShieldCheck className="h-3 w-3" /> CONFORMIDADE LOCAL ATIVA
             </Badge>
           </div>
         </div>
@@ -133,7 +129,7 @@ export function OmniReportView() {
                   <div className="p-2 bg-primary rounded-lg"><BrainCircuit className="h-6 w-6 text-white" /></div>
                   <div>
                     <CardTitle className="text-lg font-black uppercase tracking-tight">Veredito AI (Busca 360)</CardTitle>
-                    <CardDescription className="text-zinc-400 text-[10px] font-bold uppercase">Motor de Inteligência DataJud + Gemini</CardDescription>
+                    <CardDescription className="text-zinc-400 text-[10px] font-bold uppercase">Motor de Inteligência Local + Gemini</CardDescription>
                   </div>
                 </div>
               </div>
@@ -195,7 +191,7 @@ export function OmniReportView() {
                     <div className="p-4 border-2 rounded-xl bg-zinc-900 text-white space-y-2">
                       <span className="text-[9px] font-black text-zinc-400 uppercase opacity-60">Status de Rede</span>
                       <p className="font-bold text-green-400 uppercase text-[10px] flex items-center gap-2">
-                         <ShieldCheck className="h-3 w-3" /> DataJud Online
+                         <ShieldCheck className="h-3 w-3" /> Conexão Segura Ativa
                       </p>
                     </div>
                   </div>
@@ -227,7 +223,7 @@ export function OmniReportView() {
                   <div className="p-2 bg-zinc-100 rounded-lg group-hover:bg-zinc-900 group-hover:text-white transition-colors"><Database className="h-5 w-5" /></div>
                   <h3 className="font-black uppercase text-xs">Armazém Cloud</h3>
                 </div>
-                <p className="text-[10px] text-zinc-500 font-bold uppercase leading-tight">Repositório de insights salvos pelo Analista Sênior.</p>
+                <p className="text-[10px] text-zinc-500 font-bold uppercase leading-tight">Repositório de insights salvos localmente.</p>
                 <Button variant="outline" className="w-full text-[10px] font-black h-9 border-zinc-200 uppercase">EXPLORAR NUVEM</Button>
               </CardContent>
             </Card>
@@ -236,16 +232,12 @@ export function OmniReportView() {
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4 text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Auditoria Técnica</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Auditoria Local</span>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-[9px] font-black uppercase opacity-60">
-                    <span>Consultas Hoje</span>
-                    <span>{result ? "1" : "0"}</span>
-                  </div>
-                  <div className="flex justify-between text-[9px] font-black uppercase opacity-60">
                     <span>Insights Salvos</span>
-                    <span>{insights?.length || 0}</span>
+                    <span>{insights.length}</span>
                   </div>
                 </div>
               </CardContent>
@@ -258,7 +250,7 @@ export function OmniReportView() {
             <div className="flex items-center gap-2">
               <Copyright className="h-3 w-3 text-zinc-300" />
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">
-                Todos os direitos Reservados | W1 Capital
+                © Todos os direitos Reservados | W1 Capital
               </p>
             </div>
             <p className="text-[12px] font-black text-zinc-900 uppercase tracking-tight">
@@ -268,7 +260,6 @@ export function OmniReportView() {
         </footer>
       </div>
 
-      {/* Modal: Relatório por Prompt */}
       <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
         <DialogContent className="max-w-3xl bg-white border-2">
           <DialogHeader>
@@ -302,16 +293,15 @@ export function OmniReportView() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Armazém Cloud */}
       <Dialog open={isCloudOpen} onOpenChange={setIsCloudOpen}>
         <DialogContent className="max-w-3xl bg-white border-2">
           <DialogHeader>
             <DialogTitle className="font-black uppercase text-xl">Armazém de Insights</DialogTitle>
-            <DialogDescription className="text-[10px] font-black uppercase text-zinc-400">Repositório de Análises Salvas</DialogDescription>
+            <DialogDescription className="text-[10px] font-black uppercase text-zinc-400">Repositório de Análises Locais</DialogDescription>
           </DialogHeader>
           <ScrollArea className="h-[50vh] pr-4 mt-4">
             <div className="space-y-4">
-              {insights && insights.length > 0 ? insights.map((insight: any) => (
+              {insights.length > 0 ? insights.map((insight: any) => (
                 <div key={insight.id} className="p-4 rounded-xl border-2 bg-zinc-50 relative group">
                   <div className="flex justify-between items-start mb-2">
                     <Badge className="bg-zinc-900 text-[9px] font-black">{insight.cnj}</Badge>
@@ -331,7 +321,7 @@ export function OmniReportView() {
               )) : (
                 <div className="flex flex-col items-center justify-center h-48 text-zinc-300">
                   <Database className="h-10 w-10 opacity-20 mb-2" />
-                  <p className="text-[10px] font-black uppercase">Nenhum insight no armazém.</p>
+                  <p className="text-[10px] font-black uppercase">Nenhum insight no armazém local.</p>
                 </div>
               )}
             </div>
