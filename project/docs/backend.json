@@ -1,0 +1,47 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Extended user profile information.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "spreadsheetId": { "type": "string" }
+      }
+    },
+    "CrmRecord": {
+      "title": "CRM Record",
+      "description": "A single record mirrored from the spreadsheet into the SaaS database.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "data": { "type": "object" },
+        "status": { "type": "string" },
+        "nextDate": { "type": "string", "format": "date" },
+        "clientName": { "type": "string" },
+        "processNumber": { "type": "string" },
+        "lastUpdated": { "type": "string", "format": "date-time" },
+        "tabName": { "type": "string" },
+        "rowIndex": { "type": "number" }
+      },
+      "required": ["clientName", "status"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User account and configuration."
+    },
+    "/users/{userId}/records/{recordId}": {
+      "schema": "CrmRecord",
+      "description": "Isolated records for each user SaaS silo."
+    }
+  }
+}

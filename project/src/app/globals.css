@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 221 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 221 40% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 40% 10%;
+    --primary: 221 80% 45%;
+    --primary-foreground: 210 25% 98%;
+    --secondary: 221 20% 90%;
+    --secondary-foreground: 221 80% 30%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 221 20% 45%;
+    --accent: 190 100% 53%;
+    --accent-foreground: 221 80% 15%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 221 20% 90%;
+    --input: 221 20% 90%;
+    --ring: 221 80% 45%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-body; }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  header, 
+  aside, 
+  nav,
+  button,
+  .no-print,
+  .print-hidden,
+  [data-sidebar="trigger"],
+  [role="tooltip"] {
+    display: none !important;
+  }
+
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  main, 
+  #report-scroll-area, 
+  .flex-1 {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .card {
+    page-break-inside: avoid;
+    margin-bottom: 15px !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+
+  h1, h2, h3, .text-xl, .text-lg {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* Custom Black Scrollbar - Mandatory V4 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 5px;
+  border: 2px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #222222;
+}
+
+/* Firefox Support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #f1f1f1;
+}
+
+/* Force scrollability and black scrollbar on all overflow containers */
+.overflow-auto, .overflow-x-auto, .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #f1f1f1;
+}
