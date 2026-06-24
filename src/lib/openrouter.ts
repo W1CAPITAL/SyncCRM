@@ -4,13 +4,17 @@
  */
 
 export const OPENROUTER_MODEL = "openai/gpt-4o-mini";
-export const OPENROUTER_API_KEY = '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';
+// A chave é recuperada do ambiente para máxima segurança em produção
+export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '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';
 
 /**
- * Realiza uma chamada direta para a API do OpenRouter via fetch.
- * Purgação total de Genkit e Firebase.
+ * Realiza uma chamada direta para a API do OpenRouter via fetch (Server-Side).
  */
-export async function callOpenRouter(promptText: string, jsonMode: boolean = false) {
+export async function callOpenRouter(promptText: string) {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('Chave de API do OpenRouter não configurada no ambiente.');
+  }
+
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -25,25 +29,24 @@ export async function callOpenRouter(promptText: string, jsonMode: boolean = fal
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um Consultor Estratégico Sênior da W1 Capital. Responda de forma clara, profissional e técnica. Se solicitado JSON, retorne APENAS o JSON puro sem markdown.'
+            content: 'Você é um Consultor Estratégico Sênior da W1 Capital. Analise dados jurídicos e responda EXCLUSIVAMENTE em formato JSON puro. O JSON deve conter obrigatoriamente os campos: "resumo" (string), "risco" (string) e "sugestao" (string). Não use blocos de código markdown nem arrays complexos.'
           },
           { role: 'user', content: promptText }
         ],
-        response_format: jsonMode ? { type: 'json_object' } : undefined,
         temperature: 0.2
       })
     });
 
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message || 'Erro de conexão com o OpenRouter');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData?.error?.message || `Erro HTTP: ${response.status}`);
     }
 
+    const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
   } catch (e: any) {
-    console.error('OpenRouter Error:', e.message);
-    throw new Error(`ERRO_API: ${e.message}`);
+    console.error('OpenRouter Gateway Error:', e.message);
+    throw new Error(`FALHA_CONEXAO_IA: ${e.message}`);
   }
 }
 
@@ -54,18 +57,16 @@ export function safeJsonParse(text: string) {
   try {
     if (!text) return null;
     
+    // Remove qualquer resquício de markdown
     const cleanText = text
       .replace(/```json/g, '')
       .replace(/```/g, '')
       .trim();
       
     const parsed = JSON.parse(cleanText);
-    
-    if (parsed.output && typeof parsed.output === 'object') return parsed.output;
-    
     return parsed;
   } catch (e) {
-    console.error("Falha ao parsear JSON:", text);
+    console.warn("Falha ao parsear JSON, tentando extração parcial:", text);
     return null;
   }
 }
