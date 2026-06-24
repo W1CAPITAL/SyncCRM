@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useRef } from "react";
@@ -22,8 +23,7 @@ const TJ_MAP: Record<string, string> = {
 
 const INACTIVE_KEYWORDS = [
   "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-  "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "SUCUMBÊNCIAS", 
-  "SUCUMBÊNCIA", "INATIVO"
+  "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "INATIVO"
 ];
 
 const parseSheetDate = (value: any) => {
@@ -33,7 +33,10 @@ const parseSheetDate = (value: any) => {
     const parts = str.includes("/") ? str.split("/") : str.split("-");
     let date;
     if (parts[0].length === 4) date = new Date(str);
-    else date = parse(str, 'dd/MM/yyyy', new Date());
+    else {
+      date = parse(str, 'dd/MM/yyyy', new Date());
+      if (!isValid(date)) date = parse(str, 'dd/MM/yy', new Date());
+    }
     return isValid(date) ? startOfDay(date) : null;
   } catch { return null; }
 };
@@ -47,7 +50,6 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
     if (!data || data.length === 0 || !headers.length) return null;
 
     const hoje = startOfDay(new Date());
-    const seenProcess = new Set();
     const lawyers: Record<string, number> = {};
     const statusDist: Record<string, number> = {};
     const tribunals: Record<string, number> = {};
@@ -57,17 +59,13 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
     let activeCount = 0;
 
     data.forEach(row => {
-      const proc = String(row[`col_${indices.process}`] || "").trim() || row._id;
-      if (!proc || seenProcess.has(proc)) return;
-      
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
       const adv = String(row[`col_${indices.lawyer}`] || "").toUpperCase().trim();
-      const susp = String(row[`col_${indices.suspended}`] || "").toUpperCase().trim();
+      const proc = String(row[`col_${indices.process}`] || "").trim();
 
-      const isInativo = INACTIVE_KEYWORDS.some(k => st.includes(k) || adv.includes(k) || susp.includes(k));
+      const isInativo = INACTIVE_KEYWORDS.some(k => st.includes(k));
       if (isInativo) return;
 
-      seenProcess.add(proc);
       activeCount++;
 
       const proxDate = parseSheetDate(row[`col_${indices.nextDate}`]);
@@ -92,7 +90,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
       lawyers: formatData(lawyers).slice(0, 10),
       status: formatData(statusDist).slice(0, 8),
       tribunals: formatData(tribunals).slice(0, 10),
-      total: seenProcess.size,
+      total: data.length, // Agora mostra o total real de linhas sincronizadas
       overdueCount, todayContact, active: activeCount
     };
   }, [data, indices]);
@@ -140,7 +138,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-lg font-black uppercase tracking-tighter">BI Executivo</h2>
-            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Motor Universal V4</p>
+            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Motor V7 de Captura Total</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="font-black text-[9px] h-9" onClick={() => window.print()}>
@@ -154,10 +152,10 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto p-8" id="report-scroll-area">
-        <div ref={printRef} className="space-y-12 max-w-7xl mx-auto w-full bg-white p-10 rounded-xl border border-zinc-200">
+      <div className="flex-1 overflow-auto p-8 scroll-black" id="report-scroll-area">
+        <div ref={printRef} className="space-y-12 max-w-7xl mx-auto w-full bg-white p-10 rounded-xl border border-zinc-200 shadow-sm">
           <div className="border-b pb-8">
-            <h1 className="text-2xl font-black uppercase tracking-tighter mb-6">Relatório Consolidado V4</h1>
+            <h1 className="text-2xl font-black uppercase tracking-tighter mb-6">Relatório Consolidado V7</h1>
             <div className="grid grid-cols-4 gap-4">
               <Card className="border-l-4 border-l-red-600 bg-red-50/20 shadow-none">
                 <CardContent className="pt-6">
@@ -179,7 +177,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
               </Card>
               <Card className="border-l-4 border-l-zinc-900 bg-zinc-900 text-white shadow-none">
                 <CardContent className="pt-6">
-                  <p className="text-[9px] font-black uppercase text-zinc-400">Total Base</p>
+                  <p className="text-[9px] font-black uppercase text-zinc-400">Total Base Capturada</p>
                   <p className="text-3xl font-black">{stats.total}</p>
                 </CardContent>
               </Card>

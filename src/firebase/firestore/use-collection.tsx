@@ -16,7 +16,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Se não houver query (ex: por erro de cota), para o listener
+    // Se a query for nula (ex: por erro de cota ou limite), paramos o listener imediatamente
     if (!query) {
       setLoading(false);
       return;
@@ -41,7 +41,7 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
           setError(err);
           setLoading(false);
           
-          // Emite o erro para o listener global (FirebaseErrorListener)
+          // Emitimos o erro para o listener central (FirebaseErrorListener)
           errorEmitter.emit('permission-error', err);
         }
       );

@@ -10,45 +10,25 @@
         "email": { "type": "string", "format": "email" },
         "photoURL": { "type": "string" },
         "lastLogin": { "type": "string", "format": "date-time" },
-        "role": { "type": "string", "enum": ["admin", "lawyer", "assistant"] }
+        "spreadsheetId": { "type": "string" }
       }
     },
-    "ProcessRecord": {
-      "title": "Process Record",
-      "description": "A single process record mirrored from the spreadsheet.",
+    "CrmRecord": {
+      "title": "CRM Record",
+      "description": "A single record mirrored from the spreadsheet into the SaaS database.",
       "type": "object",
       "properties": {
-        "spreadsheetId": { "type": "string" },
-        "sheetName": { "type": "string" },
-        "rowIndex": { "type": "number" },
+        "id": { "type": "string" },
         "data": { "type": "object" },
         "status": { "type": "string" },
-        "lawyer": { "type": "string" },
-        "lastUpdated": { "type": "string", "format": "date-time" }
-      }
-    },
-    "SheetMirror": {
-      "title": "Sheet Mirror",
-      "description": "Metadata about the connected Google Spreadsheet.",
-      "type": "object",
-      "properties": {
-        "spreadsheetId": { "type": "string" },
-        "title": { "type": "string" },
-        "lastSynced": { "type": "string", "format": "date-time" },
-        "tabs": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "AuditLog": {
-      "title": "Audit Log",
-      "description": "History of changes and actions performed in the CRM.",
-      "type": "object",
-      "properties": {
-        "action": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "details": { "type": "string" },
-        "userId": { "type": "string" },
-        "processId": { "type": "string" }
-      }
+        "nextDate": { "type": "string", "format": "date" },
+        "clientName": { "type": "string" },
+        "processNumber": { "type": "string" },
+        "lastUpdated": { "type": "string", "format": "date-time" },
+        "tabName": { "type": "string" },
+        "rowIndex": { "type": "number" }
+      },
+      "required": ["clientName", "status"]
     }
   },
   "auth": {
@@ -57,19 +37,11 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
-      "description": "Stores user profile data."
+      "description": "User account and configuration."
     },
-    "/users/{userId}/mirrors/{mirrorId}": {
-      "schema": "SheetMirror",
-      "description": "Stores synced sheet metadata."
-    },
-    "/users/{userId}/processes": {
-      "schema": "ProcessRecord",
-      "description": "Stores actual process data for fast querying and filtering."
-    },
-    "/users/{userId}/audit": {
-      "schema": "AuditLog",
-      "description": "Stores user-specific audit history."
+    "/users/{userId}/records/{recordId}": {
+      "schema": "CrmRecord",
+      "description": "Isolated records for each user SaaS silo."
     }
   }
 }

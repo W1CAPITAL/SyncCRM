@@ -25,36 +25,30 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
     const overdue: any[] = [];
     const todayList: any[] = [];
     const upcoming: any[] = [];
-    const processosVistos = new Set();
 
     const INACTIVE_KEYWORDS = [
       "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-      "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "SUCUMBÊNCIAS", 
-      "SUCUMBÊNCIA", "INATIVO"
+      "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "INATIVO"
     ];
 
     data.forEach((row) => {
-      const proc = String(row[`col_${indices.process}`] || "").trim();
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
-      const adv = String(row[`col_${indices.lawyer}`] || "").toUpperCase().trim();
-      const susp = String(row[`col_${indices.suspended}`] || "").toUpperCase().trim();
-
-      // De-duplicação V3
-      if (proc && processosVistos.has(proc)) return;
-      if (proc) processosVistos.add(proc);
-
-      const isInactive = 
-        INACTIVE_KEYWORDS.some(k => st.includes(k)) || 
-        adv.includes("ENCERRADO") || 
-        susp.includes("SUSPEN");
-
+      
+      const isInactive = INACTIVE_KEYWORDS.some(k => st.includes(k));
       if (isInactive) return;
 
       const proxStr = String(row[`col_${indices.nextDate}`] || "").trim();
-      if (!proxStr || proxStr === "0") return;
+      if (!proxStr || proxStr === "0" || proxStr === "") return;
 
       try {
-        const proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
+        const parts = proxStr.split(' ')[0].split(/[\/\-]/);
+        let proxDate;
+        if (parts[0].length === 4) proxDate = new Date(proxStr);
+        else {
+          proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
+          if (!isValid(proxDate)) proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yy', new Date());
+        }
+
         if (!isValid(proxDate)) return;
 
         const item = { ...row, parsedDate: proxDate };
@@ -68,7 +62,11 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
 
     const sortFn = (a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime();
 
-    return { overdue: overdue.sort(sortFn), today: todayList, upcoming: upcoming.sort(sortFn) };
+    return { 
+      overdue: overdue.sort(sortFn), 
+      today: todayList, 
+      upcoming: upcoming.sort(sortFn) 
+    };
   }, [data, indices]);
 
   const renderGroup = (title: string, items: any[], type: 'overdue' | 'today' | 'upcoming') => {
@@ -85,7 +83,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => (
-            <Card key={item._id} className={cn(
+            <Card key={item.id} className={cn(
               "shadow-sm border-l-4 transition-all hover:shadow-md bg-white",
               type === 'overdue' ? "border-l-red-600" : type === 'today' ? "border-l-amber-500" : "border-l-green-500"
             )}>
@@ -105,9 +103,9 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                     <p className="text-[10px] font-medium truncate uppercase">{item[`col_${indices.lawyer}`] || "--"}</p>
                   </div>
                   <div className="flex-1">
-                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Prioridade</p>
+                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Urgência</p>
                     <p className={cn("text-[9px] font-black uppercase", type === 'overdue' ? "text-red-600" : type === 'today' ? "text-amber-600" : "text-green-600")}>
-                      {type === 'overdue' ? "URGENTE" : type === 'today' ? "HOJE" : "PROGRAMADO"}
+                      {type === 'overdue' ? "URGENTE" : type === 'today' ? "HOJE" : "EM DIA"}
                     </p>
                   </div>
                 </div>
@@ -118,7 +116,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold flex-1" onClick={() => onReschedule(item)}>
                     <Clock className="h-3.5 w-3.5 mr-2" /> REAGENDAR
                   </Button>
-                  <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
+                  <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900 text-white" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
                     <CheckCircle className="h-3.5 w-3.5 mr-2" /> CONCLUIR
                   </Button>
                 </div>
@@ -136,7 +134,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Monitoramento Operacional Unificado V3</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Monitoramento Operacional Total V6</p>
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 font-black">{groups.overdue.length} ATRASADOS</Badge>
