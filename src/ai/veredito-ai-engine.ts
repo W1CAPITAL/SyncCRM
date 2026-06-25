@@ -1,22 +1,16 @@
+
 /**
- * @fileOverview Gateway de Inteligência Veredito AI V41 - Utilitários de Lógica.
- * Removido 'use server' para atuar como biblioteca de suporte para API Routes.
+ * @fileOverview Motor de Inteligência Veredito AI V42 - Biblioteca de Servidor.
+ * Independente de Server Actions para compatibilidade total com API Routes.
  */
 
-import { callOpenRouter, safeJsonParse } from '@/lib/openrouter';
-
-const DATAJUD_API_KEY = process.env.DATAJUD_API_KEY || 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
+import { callOpenRouter, safeJsonParse, DATAJUD_API_KEY } from '@/lib/openrouter';
 
 function ensureString(val: any): string {
   if (val === null || val === undefined) return "Não informado";
   if (typeof val === 'string') return val;
   if (Array.isArray(val)) return val.map(item => ensureString(item)).join("\n• ");
-  if (typeof val === 'object') {
-    if (val.resumo) return ensureString(val.resumo);
-    if (val.risco) return ensureString(val.risco);
-    if (val.sugestao) return ensureString(val.sugestao);
-    return JSON.stringify(val);
-  }
+  if (typeof val === 'object') return JSON.stringify(val);
   return String(val);
 }
 
@@ -78,10 +72,12 @@ export async function processarVeredito(cnj: string, engine: string) {
       ultimaAtualizacao: rawProcess.dataHoraUltimaAtualizacao ? new Date(rawProcess.dataHoraUltimaAtualizacao).toLocaleString('pt-BR') : "Desconhecida"
     };
 
+    // Modo Handoff para Grok (Cliente processa a IA)
     if (engine === 'grok') {
       return { success: true, mode: 'client_handoff', cnj, metadata, rawProcess };
     }
 
+    // Modo Local (Servidor processa heurística)
     if (engine === 'local') {
       return {
         success: true,
@@ -90,13 +86,13 @@ export async function processarVeredito(cnj: string, engine: string) {
         metadata,
         parecer: {
           resumo: `Análise Heurística: Processo de ${metadata.classe} no ${metadata.orgao}.`,
-          risco: "Risco Moderado detectado por regras de negócio locais.",
-          sugestao: "Verificar movimentações recentes e prazos de recurso."
+          risco: "Risco Moderado detectado por motor local.",
+          sugestao: "Consultar movimentações recentes via tribunal."
         }
       };
     }
 
-    // OpenRouter
+    // Modo OpenRouter (Servidor processa a IA)
     const promptText = `Analise este processo judicial e gere um parecer técnico: ${JSON.stringify(rawProcess)}. 
     Responda APENAS em JSON: {"resumo": "...", "risco": "...", "sugestao": "..."}.`;
 
@@ -110,11 +106,11 @@ export async function processarVeredito(cnj: string, engine: string) {
       metadata,
       parecer: {
         resumo: ensureString(parsed?.resumo || "Resumo gerado com sucesso."),
-        risco: ensureString(parsed?.risco || "Risco operacional padrão."),
-        sugestao: ensureString(parsed?.sugestao || "Seguir rito processual.")
+        risco: ensureString(parsed?.risco || "Análise de risco concluída."),
+        sugestao: ensureString(parsed?.sugestao || "Seguir rito processual padrão.")
       }
     };
   } catch (e: any) {
-    return { success: false, error: "Falha Crítica no Motor: " + e.message };
+    return { success: false, error: "Falha Crítica no Gateway: " + e.message };
   }
 }

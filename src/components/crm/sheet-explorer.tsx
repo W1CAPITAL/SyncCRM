@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -150,17 +151,17 @@ export function SheetExplorer() {
       localStorage.setItem('last_spreadsheet_id', spreadsheetId);
       localStorage.setItem('last_headers', JSON.stringify(currentHeaders));
       
-      toast({ title: "Base Sincronizada", description: `${formattedRecords.length} registros capturados.` });
+      toast({ title: "Sincronia Total", description: `${formattedRecords.length} registros capturados via Borda.` });
       setView('dashboard');
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro na Sincronização", description: e.message });
+      toast({ variant: "destructive", title: "Erro na Captura", description: e.message });
     } finally { setIsSyncing(false); }
   };
 
   const handleEngineChange = (val: string) => {
     setAiEngine(val);
     localStorage.setItem('crm_ai_engine', val);
-    toast({ title: "Motor de IA Atualizado", description: `Configurado para: ${val.toUpperCase()}` });
+    toast({ title: "Gateway Atualizado", description: `Motor ${val.toUpperCase()} selecionado.` });
   };
 
   const activeRecords = useMemo(() => {
@@ -227,10 +228,10 @@ export function SheetExplorer() {
             <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 shadow-sm">
               <div className="flex items-center gap-4">
                 <SidebarTrigger />
-                <Badge variant="outline" className="text-[10px] font-black uppercase border-zinc-300">SyncCRM Elite</Badge>
+                <Badge variant="outline" className="text-[10px] font-black uppercase border-zinc-300">SyncCRM Elite V42</Badge>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-zinc-900 uppercase">Analista Consultor Sênior</span>
+                <span className="text-[10px] font-black text-zinc-900 uppercase">Consultor Sênior</span>
                 <Button variant="ghost" size="sm" className="h-9 text-[10px] font-black uppercase" onClick={handleLogout}><LogOut className="h-3.5 w-3.5 mr-2" /> Sair</Button>
               </div>
             </header>
@@ -242,23 +243,23 @@ export function SheetExplorer() {
                     <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
                       <div className="space-y-2 text-center">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-md"><Database className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">Conexão de Dados</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Sincronização com Google Sheets</p>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Conexão Independente</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Integração Direta com Google Sheets</p>
                       </div>
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-zinc-500">Google Spreadsheet ID</Label>
                         <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="ID da URL da sua planilha" className="h-12 font-mono text-xs border-2" />
                       </div>
                       <Button className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 font-black text-white text-xs uppercase tracking-widest" onClick={handleMirrorSheets} disabled={isSyncing}>
-                        {isSyncing ? "CARREGANDO..." : "ATIVAR SYNC INDEPENDENTE"}
+                        {isSyncing ? "CONECTANDO..." : "ATIVAR SYNC DE BORDA"}
                       </Button>
                     </Card>
 
                     <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl border-zinc-100">
                       <div className="space-y-2 text-center">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md"><Zap className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor de Inteligência</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Selecione o Provedor de Processamento AI</p>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor Cognitivo</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gateway de Inteligência AI V42</p>
                       </div>
                       
                       <RadioGroup value={aiEngine} onValueChange={handleEngineChange} className="grid grid-cols-1 gap-4">
@@ -269,7 +270,7 @@ export function SheetExplorer() {
                               <span className="font-black text-xs uppercase">OpenRouter (GPT-4o Mini)</span>
                               <Badge variant="outline" className="text-[8px] font-black border-zinc-300">NUVEM ELITE</Badge>
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Melhor performance para pareceres complexos.</p>
+                            <p className="text-[10px] text-zinc-500 font-medium">Análise de alta fidelidade processada em borda.</p>
                           </Label>
                         </div>
 
@@ -280,7 +281,7 @@ export function SheetExplorer() {
                               <span className="font-black text-xs uppercase">Grok AI (xAI via Puter)</span>
                               <Badge variant="outline" className="text-[8px] font-black border-zinc-900 text-white bg-zinc-900">X-AI ELITE</Badge>
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Inteligência ágil e sagaz da xAI.</p>
+                            <p className="text-[10px] text-zinc-500 font-medium">Inteligência local via navegador (User-Pays).</p>
                           </Label>
                         </div>
 
@@ -289,9 +290,9 @@ export function SheetExplorer() {
                           <Label htmlFor="engine-local" className="flex-1 cursor-pointer">
                             <div className="flex items-center justify-between">
                               <span className="font-black text-xs uppercase">Motor Local (Offline)</span>
-                              <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">HEURÍSTICO</Badge>
+                              <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">REGRAS</Badge>
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Análise baseada em regras locais sem custo de API.</p>
+                            <p className="text-[10px] text-zinc-500 font-medium">Análise heurística imediata sem custo de API.</p>
                           </Label>
                         </div>
                       </RadioGroup>
@@ -301,12 +302,12 @@ export function SheetExplorer() {
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary rounded-lg text-white"><ShieldCheck className="h-5 w-5" /></div>
                         <div>
-                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Infraestrutura Ativa</p>
-                          <p className="text-xs font-black uppercase">Operando em Modo Independente</p>
+                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Protocolo Edge</p>
+                          <p className="text-xs font-black uppercase">Arquitetura de Borda Cloudflare</p>
                         </div>
                       </div>
                       <p className="text-[10px] text-zinc-400 italic leading-relaxed uppercase">
-                        A arquitetura do SyncCRM é agnóstica a provedores. Seus dados nunca tocam no servidor do sistema, sendo processados diretamente entre o navegador e o motor selecionado.
+                        Sistema purificado. Desacoplamento total do Firebase concluído. O SyncCRM agora opera via API Routes dinâmicas, garantindo 100% de compatibilidade fora do Studio.
                       </p>
                     </Card>
                   </div>
@@ -321,7 +322,7 @@ export function SheetExplorer() {
                       </div>
                       <div className="flex gap-2">
                          <Button variant="default" size="sm" className="h-10 text-[10px] font-black uppercase bg-zinc-900" onClick={handleMirrorSheets} disabled={isSyncing}>
-                           {isSyncing ? "ATUALIZANDO..." : "ATUALIZAR BASE"}
+                           {isSyncing ? "ATUALIZANDO..." : "SINCRONIZAR AGORA"}
                          </Button>
                          <Badge className="bg-white border-2 border-zinc-200 text-zinc-900 h-10 px-4 flex items-center gap-2 font-black">
                            {activeRecords.length} REGISTROS
@@ -374,7 +375,7 @@ export function SheetExplorer() {
               <DialogHeader className="border-b pb-6">
                 <DialogTitle className="font-black uppercase text-xl flex items-center gap-3">
                   <div className="p-2 bg-zinc-900 rounded-lg text-white"><Edit2 className="h-5 w-5" /></div>
-                  Editor Registro
+                  Editor de Registro
                 </DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-x-8 gap-y-6 py-8">
@@ -393,10 +394,10 @@ export function SheetExplorer() {
                 <Button className="bg-zinc-900 text-white font-black h-14 flex-1" onClick={() => { 
                   if (editingRow) {
                     setLocalRecords(prev => prev.map(r => r.id === editingRow.id ? editingRow : r));
-                    toast({ title: "Registro Atualizado", description: "Alteração salva localmente." });
+                    toast({ title: "Registro Salvo", description: "Alteração persistida no cache local." });
                     setIsEditorOpen(false);
                   }
-                }}>SALVAR</Button>
+                }}>SALVAR ALTERAÇÕES</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

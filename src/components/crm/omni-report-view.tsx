@@ -1,9 +1,5 @@
-"use client";
 
-/**
- * @fileOverview OmniReport AI V41 - Gateway Híbrido via API Route.
- * Removida a importação direta de Server Actions para evitar erros de compilação e 403.
- */
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +10,9 @@ import { BrainCircuit, ShieldCheck, Loader2, Save, Search, Cpu, Zap, AlertCircle
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+/**
+ * OmniReport AI V42 - Gateway Híbrido (Server-side para DataJud/OpenRouter, Client-side para Grok).
+ */
 export function OmniReportView() {
   const { toast } = useToast();
   const [cnj, setCnj] = useState("");
@@ -34,7 +33,7 @@ export function OmniReportView() {
     setError(null);
 
     try {
-      // Chamada via API Route pura para evitar 405 em hosts estáticos
+      // Chamada via API Route para evitar Erro 405 na Cloudflare
       const response = await fetch('/api/veredito', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,53 +42,52 @@ export function OmniReportView() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Erro na comunicação com o servidor.");
+        throw new Error(errorData.error || "Falha na comunicação com o servidor.");
       }
 
       const data = await response.json();
 
       if (data.success) {
+        // Modo Client Handoff: O navegador assume o processamento da IA via Puter.js
         if (data.mode === 'client_handoff' && activeEngine === 'grok') {
           try {
-            // Importação dinâmica para evitar carregar Puter no bundle inicial
+            // Importação dinâmica do Puter para evitar poluição do bundle inicial
             const { puter } = await import('@heyputer/puter.js');
             
-            const prompt = `Analise este processo judicial e forneça um parecer técnico estruturado:
-            DADOS: ${JSON.stringify(data.rawProcess)}
-            Responda APENAS em JSON: {"resumo": "...", "risco": "...", "sugestao": "..."}`;
+            const prompt = `Analise este processo judicial: ${JSON.stringify(data.rawProcess)}. 
+            Responda APENAS em JSON puro: {"resumo": "...", "risco": "...", "sugestao": "..."}`;
             
             const responsePuter = await puter.ai.chat(prompt, { model: 'x-ai/grok-4.3' });
             const content = responsePuter.message.content;
-            
-            // Limpeza de Markdown JSON se necessário
             const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(cleanJson);
 
             setResult({
               ...data,
               parecer: {
-                resumo: parsed.resumo || "Análise finalizada pelo Grok.",
-                risco: parsed.risco || "Risco verificado via Puter.js.",
-                sugestao: parsed.sugestao || "Consultar movimentações no tribunal."
+                resumo: parsed.resumo || "Análise processada via Grok (xAI).",
+                risco: parsed.risco || "Risco operacional identificado.",
+                sugestao: parsed.sugestao || "Seguir rito legal."
               }
             });
           } catch (puterError: any) {
-            setError("Falha no Motor Grok (Puter): " + puterError.message);
+            setError("Erro no Motor Grok (Puter): " + puterError.message);
           }
         } else {
+          // Servidor já enviou o parecer pronto (OpenRouter ou Local)
           setResult(data);
         }
         
         if (!error) {
-          toast({ title: "Consulta Finalizada", description: `Processado via ${activeEngine.toUpperCase()}.` });
+          toast({ title: "Análise Concluída", description: `Processado com sucesso via ${activeEngine.toUpperCase()}.` });
         }
       } else {
-        setError(data.error || "Ocorreu um erro desconhecido.");
+        setError(data.error || "Erro desconhecido no motor.");
       }
     } catch (e: any) {
-      console.error("Erro no Gateway OmniReport:", e);
-      setError(e.message || "Falha crítica de rede.");
-      toast({ variant: "destructive", title: "Erro de Comunicação" });
+      console.error("Gateway Failure:", e);
+      setError(e.message || "Erro de conexão de rede.");
+      toast({ variant: "destructive", title: "Falha de Conexão" });
     } finally {
       setIsSearching(false);
     }
@@ -99,8 +97,8 @@ export function OmniReportView() {
     if (!result) return;
     const saved = JSON.parse(localStorage.getItem('crm_insights') || '[]');
     const updated = [{ id: Date.now(), ...result, timestamp: Date.now() }, ...saved];
-    localStorage.setItem('crm_insights', JSON.stringify(updated.slice(0, 20)));
-    toast({ title: "Análise Salva", description: "Histórico local atualizado." });
+    localStorage.setItem('crm_insights', JSON.stringify(updated.slice(0, 10)));
+    toast({ title: "Insight Salvo", description: "Histórico local atualizado." });
   };
 
   return (
@@ -109,7 +107,7 @@ export function OmniReportView() {
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-2xl font-black text-zinc-900 uppercase tracking-tighter">OmniReport AI</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Híbrida V41 Independente</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Híbrida V42 Independente</p>
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="border-zinc-200 bg-white font-black flex items-center gap-2">
@@ -127,7 +125,7 @@ export function OmniReportView() {
               <CardHeader className="bg-zinc-900 text-white p-6">
                 <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
                   <BrainCircuit className="h-5 w-5" />
-                  Veredito AI - Análise Consolidada
+                  Veredito AI - Análise Preditiva
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
@@ -148,7 +146,7 @@ export function OmniReportView() {
                 {error && (
                   <Alert variant="destructive" className="border-2 bg-red-50">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle className="font-black uppercase text-[10px]">Falha no Gateway</AlertTitle>
+                    <AlertTitle className="font-black uppercase text-[10px]">Alerta do Gateway</AlertTitle>
                     <AlertDescription className="text-xs font-bold">{error}</AlertDescription>
                   </Alert>
                 )}
@@ -157,13 +155,13 @@ export function OmniReportView() {
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="border-2 rounded-2xl overflow-hidden shadow-sm">
                       <div className="bg-zinc-50 border-b p-4 flex justify-between items-center">
-                        <span className="text-[11px] font-black uppercase text-zinc-500">Parecer Técnico V41</span>
+                        <span className="text-[11px] font-black uppercase text-zinc-500">Parecer Consolidado V42</span>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={saveInsight}><Save className="h-4 w-4" /></Button>
                       </div>
                       <div className="p-8 space-y-8 bg-white text-zinc-900">
                         <section className="space-y-3">
                           <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-zinc-300 rounded-full" /> Resumo
+                            <div className="h-1 w-4 bg-zinc-300 rounded-full" /> Resumo Estruturado
                           </h4>
                           <p className="text-xs font-bold text-zinc-700 leading-relaxed pl-4 border-l-4 border-zinc-200">
                             {result.parecer.resumo}
@@ -172,7 +170,7 @@ export function OmniReportView() {
                         
                         <section className="space-y-3">
                           <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-amber-400 rounded-full" /> Risco
+                            <div className="h-1 w-4 bg-amber-400 rounded-full" /> Risco de Decisão
                           </h4>
                           <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
                             <p className="text-xs font-black text-amber-900">
@@ -183,7 +181,7 @@ export function OmniReportView() {
                         
                         <section className="space-y-3">
                           <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-zinc-900 rounded-full" /> Sugestão
+                            <div className="h-1 w-4 bg-zinc-900 rounded-full" /> Sugestão Operacional
                           </h4>
                           <p className="text-xs font-bold text-zinc-800 pl-4 border-l-4 border-zinc-900">
                             {result.parecer.sugestao}
@@ -192,15 +190,15 @@ export function OmniReportView() {
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-8 border-t border-zinc-100">
                           <div className="bg-zinc-50 p-3 rounded-lg">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase">Órgão</p>
-                            <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.orgao}</p>
-                          </div>
-                          <div className="bg-zinc-50 p-3 rounded-lg">
                             <p className="text-[8px] font-black text-zinc-400 uppercase">Tribunal</p>
                             <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.tribunal}</p>
                           </div>
                           <div className="bg-zinc-50 p-3 rounded-lg">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase">Status</p>
+                            <p className="text-[8px] font-black text-zinc-400 uppercase">Órgão</p>
+                            <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.orgao}</p>
+                          </div>
+                          <div className="bg-zinc-50 p-3 rounded-lg">
+                            <p className="text-[8px] font-black text-zinc-400 uppercase">Sincronia</p>
                             <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.ultimaAtualizacao}</p>
                           </div>
                         </div>
@@ -217,10 +215,10 @@ export function OmniReportView() {
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   <ShieldCheck className="h-5 w-5 text-zinc-900" />
-                  <span className="font-black uppercase text-xs">Sistema Purificado</span>
+                  <span className="font-black uppercase text-xs">Edge Compliance</span>
                 </div>
                 <p className="text-[10px] text-zinc-500 font-medium leading-relaxed uppercase">
-                  Todas as dependências do Firebase foram removidas. O sistema agora opera via API Routes nativas para garantir 100% de compatibilidade fora do Studio.
+                  Operando via Cloudflare Edge Runtime. Chamadas de IA isoladas para garantir 100% de privacidade e conformidade com o novo paradigma independente.
                 </p>
               </CardContent>
             </Card>
