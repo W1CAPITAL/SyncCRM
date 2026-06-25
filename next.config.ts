@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Força a transpilação de bibliotecas que usam classes ES6 modernas para evitar erro de 'super'
+  // Transpilação de pacotes com classes ES6 modernas para evitar erro de 'super' keyword
   transpilePackages: ['docx', 'pdfjs-dist'],
   images: {
     remotePatterns: [
@@ -34,14 +34,11 @@ const nextConfig: NextConfig = {
     ],
   },
   webpack: (config) => {
-    // Configuração crítica para resolver erro de 'super' em bibliotecas ESM (como docx)
-    // Força o webpack a tratar .mjs em node_modules com compatibilidade automática
+    // Regra crítica para Cloudflare: Trata .mjs de bibliotecas modernas com compatibilidade automática
     config.module.rules.push({
-      test: /\.m?js$/,
+      test: /\.mjs$/,
+      include: /node_modules/,
       type: 'javascript/auto',
-      resolve: {
-        fullySpecified: false,
-      },
     });
     return config;
   }

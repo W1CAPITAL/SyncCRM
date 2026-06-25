@@ -10,9 +10,8 @@ import { FileText, Download, Loader2, Sparkles, CheckCircle2, FileUp, Upload } f
 import { useToast } from "@/hooks/use-toast";
 
 /**
- * Gerador de Documentos AI V51 Elite Final.
- * CORREÇÃO DEFINITIVA: Utiliza importações dinâmicas e transpilePackages no next.config.ts
- * para eliminar o erro 'super' keyword inesperado.
+ * Gerador de Documentos V51 Elite Cloudflare Fix.
+ * Utiliza importações dinâmicas e isolamento total para evitar erro de 'super' keyword.
  */
 export function DocGeneratorView() {
   const { toast } = useToast();
@@ -32,6 +31,7 @@ export function DocGeneratorView() {
 
     setIsPdfLoading(true);
     try {
+      // Importação dinâmica para evitar erro de build no Cloudflare
       const pdfjs = await import("pdfjs-dist");
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
@@ -40,7 +40,7 @@ export function DocGeneratorView() {
       const pdf = await loadingTask.promise;
       let fullText = "";
 
-      // V51 Elite: Lemos apenas as 3 primeiras páginas para extração cirúrgica de qualificação
+      // V51 Elite: Lemos apenas as páginas iniciais para extração cirúrgica de qualificação
       const maxPages = Math.min(pdf.numPages, 3);
       for (let i = 1; i <= maxPages; i++) {
         const page = await pdf.getPage(i);
@@ -50,7 +50,7 @@ export function DocGeneratorView() {
       }
 
       setInput(fullText);
-      toast({ title: "PDF Processado", description: "Qualificação identificada com sucesso." });
+      toast({ title: "PDF Processado", description: "Dados prontos para extração cirúrgica." });
     } catch (error: any) {
       console.error(error);
       toast({ variant: "destructive", title: "Erro no PDF", description: "Falha ao processar arquivo." });
@@ -91,6 +91,7 @@ export function DocGeneratorView() {
     setIsDownloading(true);
 
     try {
+      // Importação dinâmica absoluta para isolar o erro de 'super' keyword
       const docx = await import("docx");
       const fileSaver = await import("file-saver");
       const { Document, Packer, Paragraph, TextRun, AlignmentType, UnderlineType } = docx;

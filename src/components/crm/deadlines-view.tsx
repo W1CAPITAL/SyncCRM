@@ -19,6 +19,11 @@ interface DeadlinesViewProps {
   onReschedule: (row: any) => void;
 }
 
+const INACTIVE_KEYWORDS = [
+  "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
+  "JULGADO", "CANCELADO", "INATIVO"
+];
+
 export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
   const groups = useMemo(() => {
     const today = startOfDay(new Date());
@@ -29,11 +34,6 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
     const todayList: any[] = [];
     const upcoming: any[] = [];
     const closedWithAppointment: any[] = [];
-
-    const INACTIVE_KEYWORDS = [
-      "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-      "JULGADO", "CANCELADO", "INATIVO"
-    ];
 
     data.forEach((row) => {
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
@@ -47,8 +47,9 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
         try {
           const parts = proxStr.split(' ')[0].split(/[\/\-]/);
           let proxDate;
-          if (parts[0].length === 4) proxDate = new Date(proxStr);
-          else {
+          if (parts[0].length === 4) {
+             proxDate = new Date(proxStr.split(' ')[0]);
+          } else {
             proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
             if (!isValid(proxDate)) proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yy', new Date());
           }
@@ -67,8 +68,9 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       try {
         const parts = proxStr.split(' ')[0].split(/[\/\-]/);
         let proxDate;
-        if (parts[0].length === 4) proxDate = new Date(proxStr);
-        else {
+        if (parts[0].length === 4) {
+           proxDate = new Date(proxStr.split(' ')[0]);
+        } else {
           proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
           if (!isValid(proxDate)) proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yy', new Date());
         }
@@ -131,7 +133,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
               type === 'really_overdue' ? "border-l-zinc-950 bg-zinc-50/50" : 
               type === 'common_overdue' ? "border-l-red-600" : 
               type === 'today' ? "border-l-amber-500" : 
-              type === 'closed' ? "border-l-zinc-300 bg-zinc-50/20" : "border-l-green-500"
+              type === 'closed' ? (item.isLate ? "border-l-amber-500 bg-amber-50/10" : "border-l-zinc-300 bg-zinc-50/20") : "border-l-green-500"
             )}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -160,7 +162,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                       type === 'closed' ? (item.isLate ? "text-amber-600" : "text-zinc-400") : "text-zinc-400")}>
                       {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : 
                        type === 'common_overdue' ? "ATENÇÃO ALTA" : 
-                       type === 'closed' ? (item.isLate ? "AGENDAMENTO ATRASADO" : "ENCERRADO") : "NORMAL"}
+                       type === 'closed' ? (item.isLate ? "AGENDAMENTO PENDENTE" : "ENCERRADO") : "NORMAL"}
                     </p>
                   </div>
                 </div>
@@ -191,7 +193,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Diferenciação Crítica V8 | SLA 5 Dias</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Segmentação Estratégica V51 | SLA 5 Dias</p>
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-zinc-900 text-white border-zinc-900 px-3 py-1 font-black">{groups.reallyOverdue.length} CRÍTICO MÁXIMO</Badge>

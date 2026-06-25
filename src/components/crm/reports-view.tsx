@@ -23,7 +23,7 @@ const TJ_MAP: Record<string, string> = {
 
 const INACTIVE_KEYWORDS = [
   "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-  "JULGADO", "CANCELADO", "INATIVO"
+  "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "INATIVO"
 ];
 
 const parseSheetDate = (value: any) => {
@@ -32,8 +32,9 @@ const parseSheetDate = (value: any) => {
   try {
     const parts = str.includes("/") ? str.split("/") : str.split("-");
     let date;
-    if (parts[0].length === 4) date = new Date(str);
-    else {
+    if (parts[0].length === 4) {
+       date = new Date(str);
+    } else {
       date = parse(str, 'dd/MM/yyyy', new Date());
       if (!isValid(date)) date = parse(str, 'dd/MM/yy', new Date());
     }
@@ -120,7 +121,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
   const handleDownloadPDF = async () => {
     if (!printRef.current) return;
     setIsExporting(true);
-    toast({ title: "Exportando PDF Executivo", description: "Gerando relatório V8 segmentado..." });
+    toast({ title: "Exportando PDF Executivo", description: "Gerando relatório V51 segmentado..." });
 
     try {
       const container = printRef.current;
@@ -144,7 +145,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
         heightLeft -= pageHeight;
       }
 
-      pdf.save(`Relatorio_Executivo_V8_${new Date().getTime()}.pdf`);
+      pdf.save(`Relatorio_Executivo_V51_${new Date().getTime()}.pdf`);
     } catch (e) {
       toast({ variant: "destructive", title: "Erro na exportação" });
     } finally {
@@ -159,7 +160,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
       <header className="bg-white border-b p-4 shadow-sm shrink-0 z-50 print:hidden">
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
-            <h2 className="text-lg font-black uppercase tracking-tighter">BI Executivo V8</h2>
+            <h2 className="text-lg font-black uppercase tracking-tighter">BI Executivo V51</h2>
             <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Análise de Urgência Diferenciada</p>
           </div>
           <div className="flex gap-2">
@@ -177,7 +178,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
       <div className="flex-1 overflow-auto p-8 scroll-black" id="report-scroll-area">
         <div ref={printRef} className="space-y-12 max-w-7xl mx-auto w-full bg-white p-10 rounded-xl border border-zinc-200 shadow-sm">
           <div className="border-b pb-8">
-            <h1 className="text-2xl font-black uppercase tracking-tighter mb-6 text-zinc-900">Health Check Operacional V8</h1>
+            <h1 className="text-2xl font-black uppercase tracking-tighter mb-6 text-zinc-900">Health Check Operacional V51</h1>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="border-l-4 border-l-black bg-zinc-50 shadow-none">
                 <CardContent className="pt-6">

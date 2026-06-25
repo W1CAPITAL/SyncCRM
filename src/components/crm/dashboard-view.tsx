@@ -27,8 +27,9 @@ const parseSheetDate = (value: any) => {
   try {
     const parts = str.includes("/") ? str.split("/") : str.split("-");
     let date;
-    if (parts[0].length === 4) date = new Date(str);
-    else {
+    if (parts[0].length === 4) {
+       date = new Date(str);
+    } else {
       date = parse(str, 'dd/MM/yyyy', new Date());
       if (!isValid(date)) date = parse(str, 'dd/MM/yy', new Date());
     }
@@ -86,7 +87,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
       <header className="bg-white border-b p-6 flex items-center justify-between shrink-0 shadow-sm">
         <div>
           <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Painel de Controle</h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Tática V8 | Gestão de Prazos</p>
+          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Tática V51 | Saúde da Carteira</p>
         </div>
         <div className="flex gap-2">
            <Badge variant="outline" className="h-8 border-zinc-300 text-zinc-500 bg-zinc-50 flex items-center gap-2 px-3">
@@ -178,9 +179,9 @@ export function DashboardView({ data, indices }: DashboardProps) {
            </Card>
            <Card className="bg-zinc-900 text-white border-none shadow-xl">
              <CardContent className="p-8 flex flex-col justify-center h-full space-y-4">
-                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Diferenciação AI V8</p>
+                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Diferenciação V51 Elite</p>
                 <p className="text-lg font-medium leading-tight">
-                  Identificamos <span className="text-red-500 font-black">{stats.reallyOverdue} pendências realmente críticas</span>. Processos encerrados com data (<span className="text-zinc-400">{stats.closedWithDate}</span>) foram isolados para não inflar os índices de atraso da operação.
+                  Identificamos <span className="text-red-500 font-black">{stats.reallyOverdue} pendências realmente críticas</span> na carteira ativa. Os casos encerrados com data (<span className="text-zinc-400">{stats.closedWithDate}</span>) foram isolados para garantir que sua produtividade real seja mensurada sem distorções.
                 </p>
              </CardContent>
            </Card>
