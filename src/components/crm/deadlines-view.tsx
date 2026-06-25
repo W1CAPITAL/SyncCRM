@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { parse, isBefore, isToday, startOfDay, isValid, subDays } from "date-fns";
-import { MessageSquare, Clock, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle, AlertCircle, AlertTriangle, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SheetIndices } from "./sheet-explorer";
@@ -28,19 +28,28 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
     const commonOverdue: any[] = [];
     const todayList: any[] = [];
     const upcoming: any[] = [];
+    const closedWithAppointment: any[] = [];
 
     const INACTIVE_KEYWORDS = [
       "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-      "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "INATIVO"
+      "JULGADO", "CANCELADO", "INATIVO"
     ];
 
     data.forEach((row) => {
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
-      const isInactive = INACTIVE_KEYWORDS.some(k => st.includes(k));
-      if (isInactive) return;
-
       const proxStr = String(row[`col_${indices.nextDate}`] || "").trim();
-      if (!proxStr || proxStr === "0" || proxStr === "") return;
+      const hasAppointment = proxStr && proxStr !== "0" && proxStr !== "";
+      
+      const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
+
+      // Lógica V51 Elite: Encerrados com agendamento são isolados
+      if (isClosed && hasAppointment) {
+        closedWithAppointment.push({ ...row, isClosed: true });
+        return;
+      }
+
+      if (isClosed && !hasAppointment) return;
+      if (!hasAppointment) return;
 
       try {
         const parts = proxStr.split(' ')[0].split(/[\/\-]/);
@@ -73,17 +82,18 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       } catch (e) {}
     });
 
-    const sortFn = (a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime();
+    const sortFn = (a: any, b: any) => (a.parsedDate?.getTime() || 0) - (b.parsedDate?.getTime() || 0);
 
     return { 
       reallyOverdue: reallyOverdue.sort(sortFn),
       commonOverdue: commonOverdue.sort(sortFn),
       today: todayList, 
-      upcoming: upcoming.sort(sortFn) 
+      upcoming: upcoming.sort(sortFn),
+      closedWithAppointment: closedWithAppointment
     };
   }, [data, indices]);
 
-  const renderGroup = (title: string, items: any[], type: 'really_overdue' | 'common_overdue' | 'today' | 'upcoming') => {
+  const renderGroup = (title: string, items: any[], type: 'really_overdue' | 'common_overdue' | 'today' | 'upcoming' | 'closed') => {
     if (items.length === 0) return null;
     return (
       <div className="space-y-4 mb-10">
@@ -92,10 +102,12 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
             "text-sm font-black uppercase tracking-widest flex items-center gap-2",
             type === 'really_overdue' ? "text-zinc-950" : 
             type === 'common_overdue' ? "text-red-600" : 
-            type === 'today' ? "text-amber-600" : "text-green-600"
+            type === 'today' ? "text-amber-600" : 
+            type === 'closed' ? "text-zinc-500" : "text-green-600"
           )}>
             {type === 'really_overdue' && <AlertCircle className="h-4 w-4 text-red-600" />}
             {type === 'common_overdue' && <AlertTriangle className="h-4 w-4" />}
+            {type === 'closed' && <Archive className="h-4 w-4" />}
             {title} <Badge variant="secondary" className="text-[10px] ml-2 font-black">{items.length}</Badge>
           </h3>
         </div>
@@ -105,7 +117,8 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
               "shadow-sm border-l-4 transition-all hover:shadow-md bg-white",
               type === 'really_overdue' ? "border-l-zinc-950 bg-zinc-50/50" : 
               type === 'common_overdue' ? "border-l-red-600" : 
-              type === 'today' ? "border-l-amber-500" : "border-l-green-500"
+              type === 'today' ? "border-l-amber-500" : 
+              type === 'closed' ? "border-l-zinc-300 opacity-80" : "border-l-green-500"
             )}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -115,7 +128,8 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                   </div>
                   <Badge variant="outline" className={cn("text-[9px] font-black", 
                     type === 'really_overdue' ? "bg-zinc-900 text-white border-zinc-900" : 
-                    type === 'common_overdue' ? "bg-red-50 text-red-600 border-red-200" : "bg-zinc-50"
+                    type === 'common_overdue' ? "bg-red-50 text-red-600 border-red-200" : 
+                    type === 'closed' ? "bg-zinc-100 text-zinc-500 border-zinc-200" : "bg-zinc-50"
                   )}>
                     {item[`col_${indices.nextDate}`]}
                   </Badge>
@@ -129,8 +143,9 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                     <p className="text-[8px] font-bold text-zinc-400 uppercase">Prioridade</p>
                     <p className={cn("text-[9px] font-black uppercase", 
                       type === 'really_overdue' ? "text-red-600" : 
-                      type === 'common_overdue' ? "text-red-500" : "text-zinc-400")}>
-                      {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : type === 'common_overdue' ? "ATENÇÃO ALTA" : "NORMAL"}
+                      type === 'common_overdue' ? "text-red-500" : 
+                      type === 'closed' ? "text-zinc-400" : "text-zinc-400")}>
+                      {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : type === 'common_overdue' ? "ATENÇÃO ALTA" : type === 'closed' ? "ENCERRADO" : "NORMAL"}
                     </p>
                   </div>
                 </div>
@@ -141,9 +156,11 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold flex-1" onClick={() => onReschedule(item)}>
                     <Clock className="h-3.5 w-3.5 mr-2" /> REAGENDAR
                   </Button>
-                  <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900 text-white" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
-                    <CheckCircle className="h-3.5 w-3.5 mr-2" /> CONCLUIR
-                  </Button>
+                  {type !== 'closed' && (
+                    <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900 text-white" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
+                      <CheckCircle className="h-3.5 w-3.5 mr-2" /> CONCLUIR
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -163,7 +180,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-zinc-900 text-white border-zinc-900 px-3 py-1 font-black">{groups.reallyOverdue.length} CRÍTICO MÁXIMO</Badge>
-            <Badge variant="outline" className="bg-red-50 text-red-600 border-red-100 px-3 py-1 font-black">{groups.commonOverdue.length} ATRASO RECENTE</Badge>
+            <Badge variant="outline" className="bg-zinc-100 text-zinc-500 border-zinc-200 px-3 py-1 font-black">{groups.closedWithAppointment.length} ENCERRADOS COM DATA</Badge>
           </div>
         </div>
       </header>
@@ -173,6 +190,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
           {renderGroup("🟠 Atrasos Recentes (Crítico Comum)", groups.commonOverdue, 'common_overdue')}
           {renderGroup("🟡 Compromissos de Hoje", groups.today, 'today')}
           {renderGroup("🟢 Próximos Vencimentos", groups.upcoming, 'upcoming')}
+          {renderGroup("🔘 Encerrados com Agendamento", groups.closedWithAppointment, 'closed')}
         </div>
       </div>
     </div>

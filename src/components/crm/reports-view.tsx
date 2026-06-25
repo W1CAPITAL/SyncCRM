@@ -23,7 +23,7 @@ const TJ_MAP: Record<string, string> = {
 
 const INACTIVE_KEYWORDS = [
   "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-  "SUSPENSO", "SOBRESTADO", "JULGADO", "CANCELADO", "INATIVO"
+  "JULGADO", "CANCELADO", "INATIVO"
 ];
 
 const parseSheetDate = (value: any) => {
@@ -59,18 +59,24 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
     let commonOverdue = 0;
     let todayContact = 0;
     let activeCount = 0;
+    let closedWithDate = 0;
 
     data.forEach(row => {
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
       const adv = String(row[`col_${indices.lawyer}`] || "").toUpperCase().trim();
       const proc = String(row[`col_${indices.process}`] || "").trim();
+      const proxDate = parseSheetDate(row[`col_${indices.nextDate}`]);
+      const hasDate = !!proxDate;
 
-      const isInativo = INACTIVE_KEYWORDS.some(k => st.includes(k));
-      if (isInativo) return;
+      const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
+      
+      if (isClosed) {
+        if (hasDate) closedWithDate++;
+        return;
+      }
 
       activeCount++;
 
-      const proxDate = parseSheetDate(row[`col_${indices.nextDate}`]);
       const isSuspended = String(row[`col_${indices.suspended}`] || "").toLowerCase() === "true" || 
                          String(row[`col_${indices.suspended}`] || "").toLowerCase() === "sim";
 
@@ -97,6 +103,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
       { name: 'Realmente Crítico', value: reallyOverdue },
       { name: 'Crítico Comum', value: commonOverdue },
       { name: 'Prazos Hoje', value: todayContact },
+      { name: 'Encerrados c/ Data', value: closedWithDate },
       { name: 'Em Dia', value: activeCount - (reallyOverdue + commonOverdue + todayContact) }
     ].filter(s => s.value > 0);
 
@@ -105,7 +112,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
       segments: statusSegments,
       tribunals: formatData(tribunals).slice(0, 10),
       total: data.length,
-      reallyOverdue, commonOverdue, todayContact, active: activeCount
+      reallyOverdue, commonOverdue, todayContact, active: activeCount, closedWithDate
     };
   }, [data, indices]);
 
@@ -183,10 +190,10 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
                   <p className="text-3xl font-black text-red-600">{stats.commonOverdue}</p>
                 </CardContent>
               </Card>
-              <Card className="border-l-4 border-l-amber-500 bg-amber-50/20 shadow-none">
+              <Card className="border-l-4 border-l-zinc-300 bg-zinc-50 shadow-none">
                 <CardContent className="pt-6">
-                  <p className="text-[8px] font-black uppercase text-amber-600 mb-1">Vence Hoje</p>
-                  <p className="text-3xl font-black text-amber-500">{stats.todayContact}</p>
+                  <p className="text-[8px] font-black uppercase text-zinc-500 mb-1">Encerrados c/ Data</p>
+                  <p className="text-3xl font-black text-zinc-400">{stats.closedWithDate}</p>
                 </CardContent>
               </Card>
               <Card className="border-l-4 border-l-blue-600 bg-blue-50/20 shadow-none">

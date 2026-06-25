@@ -3,9 +3,10 @@
 
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, TrendingUp, Users, Calendar, AlertCircle } from "lucide-react";
+import { AlertTriangle, TrendingUp, Users, Calendar, AlertCircle, Archive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { startOfDay, isBefore, isToday, isValid, parse, subDays } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface DashboardProps {
   data: any[];
@@ -38,22 +39,28 @@ const parseSheetDate = (value: any) => {
 export function DashboardView({ data, indices }: DashboardProps) {
   const stats = useMemo(() => {
     const hoje = startOfDay(new Date());
-    const limiteCritico = subDays(hoje, 5); // Mais de 5 dias é "Realmente Crítico"
+    const limiteCritico = subDays(hoje, 5);
     
-    let reallyOverdue = 0; // Realmente Crítico (> 5 dias ou Alerta Ativo)
-    let commonOverdue = 0; // Crítico Comum (1-5 dias)
+    let reallyOverdue = 0; 
+    let commonOverdue = 0; 
     let today = 0;
     let active = 0;
+    let closedWithDate = 0;
 
-    if (!data.length) return { reallyOverdue, commonOverdue, today, active };
+    if (!data.length) return { reallyOverdue, commonOverdue, today, active, closedWithDate };
 
     data.forEach(row => {
       const st = String(row[`col_${indices.status}`] || "").toUpperCase().trim();
-      const isInativo = INACTIVE_KEYWORDS.some(k => st.includes(k));
-      if (isInativo) return;
+      const proxDate = parseSheetDate(row[`col_${indices.nextDate}`]);
+      const hasDate = !!proxDate;
+      const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
+
+      if (isClosed) {
+        if (hasDate) closedWithDate++;
+        return; // Não contabiliza como ativo ou atrasado se estiver encerrado
+      }
 
       active++;
-      const proxDate = parseSheetDate(row[`col_${indices.nextDate}`]);
       const isSuspended = String(row[`col_${indices.suspended}`] || "").toLowerCase() === "true" || 
                          String(row[`col_${indices.suspended}`] || "").toLowerCase() === "sim";
       
@@ -70,7 +77,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
       }
     });
 
-    return { reallyOverdue, commonOverdue, today, active };
+    return { reallyOverdue, commonOverdue, today, active, closedWithDate };
   }, [data, indices]);
 
   return (
@@ -78,9 +85,13 @@ export function DashboardView({ data, indices }: DashboardProps) {
       <header className="bg-white border-b p-6 flex items-center justify-between shrink-0 shadow-sm">
         <div>
           <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Painel de Controle</h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Tática V8 | Realmente Crítico vs Comum</p>
+          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Tática V8 | Gestão de Prazos</p>
         </div>
         <div className="flex gap-2">
+           <Badge variant="outline" className="h-8 border-zinc-300 text-zinc-500 bg-zinc-50 flex items-center gap-2 px-3">
+             <Archive className="h-3 w-3" />
+             <span className="font-black text-[10px]">{stats.closedWithDate} ENCERRADOS COM DATA</span>
+           </Badge>
            <Badge variant="outline" className="h-8 border-red-300 text-red-700 bg-red-50 flex items-center gap-2 px-3">
              <AlertCircle className="h-3 w-3" />
              <span className="font-black text-[10px]">{stats.reallyOverdue} URGÊNCIA MÁXIMA</span>
@@ -152,6 +163,10 @@ export function DashboardView({ data, indices }: DashboardProps) {
                      <span className="text-sm font-black text-zinc-900">{stats.active > 0 ? Math.round(((stats.active - (stats.reallyOverdue + stats.commonOverdue)) / stats.active) * 100) : 100}%</span>
                    </div>
                    <div className="flex justify-between items-end border-b pb-2">
+                     <span className="text-[11px] font-bold text-zinc-500 uppercase">Encerrados com Agendamento</span>
+                     <span className="text-sm font-black text-zinc-600">{stats.closedWithDate} casos</span>
+                   </div>
+                   <div className="flex justify-between items-end border-b pb-2">
                      <span className="text-[11px] font-bold text-zinc-500 uppercase">Nível de Alerta</span>
                      <span className={cn("text-sm font-black uppercase", stats.reallyOverdue > 0 ? "text-red-600" : "text-green-600")}>
                         {stats.reallyOverdue > 5 ? "🚨 CRÍTICO EXTREMO" : stats.reallyOverdue > 0 ? "⚠️ ALERTA VERMELHO" : "✅ SOB CONTROLE"}
@@ -164,7 +179,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
              <CardContent className="p-8 flex flex-col justify-center h-full space-y-4">
                 <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Diferenciação AI V8</p>
                 <p className="text-lg font-medium leading-tight">
-                  Identificamos <span className="text-red-500 font-black">{stats.reallyOverdue} pendências realmente críticas</span> que exigem intervenção imediata por estarem fora do SLA de 5 dias ou com marcadores de suspensão.
+                  Identificamos <span className="text-red-500 font-black">{stats.reallyOverdue} pendências realmente críticas</span>. Processos encerrados com data (<span className="text-zinc-400">{stats.closedWithDate}</span>) foram isolados para não inflar os índices de atraso da operação.
                 </p>
              </CardContent>
            </Card>
@@ -173,5 +188,3 @@ export function DashboardView({ data, indices }: DashboardProps) {
     </div>
   );
 }
-
-import { cn } from "@/lib/utils";
