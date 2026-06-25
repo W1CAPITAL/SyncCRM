@@ -1,14 +1,11 @@
-
-import { openNextConfig } from "@opennextjs/cloudflare";
-
 /**
- * Configuração estratégica para o adaptador OpenNext no Cloudflare.
- * Essencial para resolver o erro "No open-next.config.ts found".
+ * Configuração OpenNext para Cloudflare Pages.
+ * Exporta um objeto de configuração padrão para compatibilidade máxima.
  */
-const config = openNextConfig({
+const config = {
   default: {
     placement: "smart",
   },
-});
+};
 
 export default config;
