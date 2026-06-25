@@ -2,14 +2,15 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactStrictMode: false, // Desativado para evitar chamadas duplas de auth em dev
+  reactStrictMode: false,
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Força a transpilação de bibliotecas que usam classes ES6 modernas para evitar erro de 'super'
+  transpilePackages: ['docx', 'pdfjs-dist'],
   images: {
     remotePatterns: [
       {
@@ -32,6 +33,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.m?js$/,
+      resolve: {
+        fullySpecified: false,
+      },
+    });
+    return config;
+  }
 };
 
 export default nextConfig;

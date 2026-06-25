@@ -15,13 +15,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, ShieldCheck, Cpu, Zap
+  BrainCircuit, ShieldCheck, Cpu, Zap, MessageSquare, FileText
 } from "lucide-react";
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
 import { ReportsView } from "./reports-view";
 import { DocumentsView } from "./documents-view";
 import { OmniReportView } from "./omni-report-view";
+import { AiChatView } from "./ai-chat";
+import { DocGeneratorView } from "./doc-generator-view";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SheetIndices {
@@ -81,7 +83,7 @@ const parseCSV = (csvText: string) => {
 export function SheetExplorer() {
   const { toast } = useToast();
 
-  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni'>('settings');
+  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat' | 'docs_gen'>('settings');
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [aiEngine, setAiEngine] = useState<string>("openrouter");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -203,6 +205,8 @@ export function SheetExplorer() {
                   { id: 'operations', icon: FileSpreadsheet, label: 'Gestão Planilha' },
                   { id: 'prazos', icon: Clock, label: 'Controle Prazos' },
                   { id: 'omni', icon: BrainCircuit, label: 'OmniReport AI' },
+                  { id: 'chat', icon: MessageSquare, label: 'Chat Estratégico' },
+                  { id: 'docs_gen', icon: FileText, label: 'Gerador de Docs' },
                   { id: 'reports', icon: BarChart3, label: 'Analytics Hub' },
                   { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
                   { id: 'settings', icon: Settings, label: 'Configurações' },
@@ -333,6 +337,8 @@ export function SheetExplorer() {
                   <div className="flex-1 overflow-hidden">
                     {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={() => {}} onAction={() => {}} /> :
                      view === 'omni' ? <OmniReportView /> :
+                     view === 'chat' ? <AiChatView /> :
+                     view === 'docs_gen' ? <DocGeneratorView /> :
                      view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} onReschedule={() => {}} /> :
                      view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
                      view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :

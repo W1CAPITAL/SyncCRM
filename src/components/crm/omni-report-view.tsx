@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -6,12 +5,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { BrainCircuit, ShieldCheck, Loader2, Save, Search, Cpu, Zap, AlertCircle } from "lucide-react";
+import { BrainCircuit, Loader2, Search, Cpu, Zap, AlertCircle, Copy, Check, MessageSquare, CalendarClock, TrendingUp, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 /**
- * OmniReport AI V42 - Gateway Híbrido (Server-side para DataJud/OpenRouter, Client-side para Grok).
+ * Limpa artefatos de markdown no lado do cliente e preserva parágrafos.
+ */
+function cleanClientString(str: string): string {
+  if (!str) return "";
+  return str.replace(/\*\*/g, '')
+            .replace(/###/g, '')
+            .replace(/##/g, '')
+            .replace(/#/g, '')
+            .replace(/---/g, '')
+            .replace(/^[-*+]\s+/gm, '')
+            .replace(/[`_]/g, '')
+            .trim();
+}
+
+/**
+ * OmniReport AI V50 Elite - Gateway Híbrido purificado de Markdown.
  */
 export function OmniReportView() {
   const { toast } = useToast();
@@ -20,6 +35,7 @@ export function OmniReportView() {
   const [result, setResult] = useState<any>(null);
   const [activeEngine, setActiveEngine] = useState<string>("openrouter");
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const engine = localStorage.getItem('crm_ai_engine') || "openrouter";
@@ -33,7 +49,6 @@ export function OmniReportView() {
     setError(null);
 
     try {
-      // Chamada via API Route para evitar Erro 405 na Cloudflare
       const response = await fetch('/api/veredito', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,14 +63,21 @@ export function OmniReportView() {
       const data = await response.json();
 
       if (data.success) {
-        // Modo Client Handoff: O navegador assume o processamento da IA via Puter.js
         if (data.mode === 'client_handoff' && activeEngine === 'grok') {
           try {
-            // Importação dinâmica do Puter para evitar poluição do bundle inicial
             const { puter } = await import('@heyputer/puter.js');
             
-            const prompt = `Analise este processo judicial: ${JSON.stringify(data.rawProcess)}. 
-            Responda APENAS em JSON puro: {"resumo": "...", "risco": "...", "sugestao": "..."}`;
+            const prompt = `AJA COMO: Diretor de Legal Ops de Elite. 
+            Analise: ${JSON.stringify(data.rawProcess)}. 
+            PROIBIDO USAR MARKDOWN (**, ##, listas numeradas). Responda APENAS em JSON PURO:
+            {
+              "termometro": "Cenário em uma frase.", 
+              "traducao": "Decisão em parágrafo comum.", 
+              "alertas": "Riscos em parágrafo comum. Se nada, 'Sem alertas'.", 
+              "plano_acao": "Ação de HOJE em parágrafo comum.", 
+              "whatsapp": "Mensagem Cliente V50 (Eduardo Banco Pan style). SEM JURIDIQUÊS.", 
+              "followup": "Data e motivo estratégico."
+            }`;
             
             const responsePuter = await puter.ai.chat(prompt, { model: 'x-ai/grok-4.3' });
             const content = responsePuter.message.content;
@@ -65,40 +87,50 @@ export function OmniReportView() {
             setResult({
               ...data,
               parecer: {
-                resumo: parsed.resumo || "Análise processada via Grok (xAI).",
-                risco: parsed.risco || "Risco operacional identificado.",
-                sugestao: parsed.sugestao || "Seguir rito legal."
+                termometro: cleanClientString(parsed.termometro),
+                traducao: cleanClientString(parsed.traducao),
+                alertas: cleanClientString(parsed.alertas),
+                plano_acao: cleanClientString(parsed.plano_acao),
+                whatsapp: cleanClientString(parsed.whatsapp),
+                followup: cleanClientString(parsed.followup)
               }
             });
           } catch (puterError: any) {
-            setError("Erro no Motor Grok (Puter): " + puterError.message);
+            setError("Erro no Motor Grok: " + puterError.message);
           }
         } else {
-          // Servidor já enviou o parecer pronto (OpenRouter ou Local)
-          setResult(data);
+          setResult({
+            ...data,
+            parecer: {
+              termometro: cleanClientString(data.parecer.termometro),
+              traducao: cleanClientString(data.parecer.traducao),
+              alertas: cleanClientString(data.parecer.alertas),
+              plano_acao: cleanClientString(data.parecer.plano_acao),
+              whatsapp: cleanClientString(data.parecer.whatsapp),
+              followup: cleanClientString(data.parecer.followup)
+            }
+          });
         }
         
         if (!error) {
-          toast({ title: "Análise Concluída", description: `Processado com sucesso via ${activeEngine.toUpperCase()}.` });
+          toast({ title: "Análise V50 Concluída", description: "Estratégia e Mensagem Cliente geradas." });
         }
       } else {
-        setError(data.error || "Erro desconhecido no motor.");
+        setError(data.error || "Erro desconhecido.");
       }
     } catch (e: any) {
-      console.error("Gateway Failure:", e);
-      setError(e.message || "Erro de conexão de rede.");
+      setError(e.message || "Erro de conexão.");
       toast({ variant: "destructive", title: "Falha de Conexão" });
     } finally {
       setIsSearching(false);
     }
   };
 
-  const saveInsight = () => {
-    if (!result) return;
-    const saved = JSON.parse(localStorage.getItem('crm_insights') || '[]');
-    const updated = [{ id: Date.now(), ...result, timestamp: Date.now() }, ...saved];
-    localStorage.setItem('crm_insights', JSON.stringify(updated.slice(0, 10)));
-    toast({ title: "Insight Salvo", description: "Histórico local atualizado." });
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast({ title: "Copiado!", description: "Mensagem pronta para o WhatsApp." });
   };
 
   return (
@@ -107,12 +139,12 @@ export function OmniReportView() {
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
             <h2 className="text-2xl font-black text-zinc-900 uppercase tracking-tighter">OmniReport AI</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Híbrida V42 Independente</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Legal Ops & Atendimento de Elite V50</p>
           </div>
           <div className="flex gap-2">
             <Badge variant="outline" className="border-zinc-200 bg-white font-black flex items-center gap-2">
               {activeEngine === 'local' ? <Cpu className="h-3 w-3" /> : activeEngine === 'grok' ? <Zap className="h-3 w-3" /> : <BrainCircuit className="h-3 w-3" />}
-              MODO: {activeEngine.toUpperCase()}
+              ENGINE: {activeEngine.toUpperCase()}
             </Badge>
           </div>
         </div>
@@ -124,14 +156,14 @@ export function OmniReportView() {
             <Card className="border-2 border-zinc-900 shadow-xl bg-white overflow-hidden">
               <CardHeader className="bg-zinc-900 text-white p-6">
                 <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
-                  <BrainCircuit className="h-5 w-5" />
-                  Veredito AI - Análise Preditiva
+                  <Target className="h-5 w-5" />
+                  Veredito AI Elite V50
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="flex gap-3">
                   <Input 
-                    placeholder="CNJ (ex: 0800...)" 
+                    placeholder="CNJ para análise de elite (V50)..." 
                     className="h-14 font-mono border-2 text-md" 
                     value={cnj} 
                     onChange={e => setCnj(e.target.value)} 
@@ -146,62 +178,94 @@ export function OmniReportView() {
                 {error && (
                   <Alert variant="destructive" className="border-2 bg-red-50">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle className="font-black uppercase text-[10px]">Alerta do Gateway</AlertTitle>
+                    <AlertTitle className="font-black uppercase text-[10px]">Falha na Análise</AlertTitle>
                     <AlertDescription className="text-xs font-bold">{error}</AlertDescription>
                   </Alert>
                 )}
 
                 {result && result.parecer && (
                   <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="border-2 rounded-2xl overflow-hidden shadow-sm">
-                      <div className="bg-zinc-50 border-b p-4 flex justify-between items-center">
-                        <span className="text-[11px] font-black uppercase text-zinc-500">Parecer Consolidado V42</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={saveInsight}><Save className="h-4 w-4" /></Button>
+                    <div className="border-2 border-zinc-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                      <div className="bg-zinc-50 border-b p-4 flex items-center gap-2">
+                        <Badge className="bg-zinc-900 text-white font-black text-[9px] uppercase tracking-widest">
+                          🎯 1. VISÃO ESTRATÉGICA (OPERACIONAL)
+                        </Badge>
                       </div>
-                      <div className="p-8 space-y-8 bg-white text-zinc-900">
-                        <section className="space-y-3">
-                          <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-zinc-300 rounded-full" /> Resumo Estruturado
-                          </h4>
-                          <p className="text-xs font-bold text-zinc-700 leading-relaxed pl-4 border-l-4 border-zinc-200">
-                            {result.parecer.resumo}
+                      <div className="p-6 space-y-6">
+                        <div className="space-y-1">
+                          <h4 className="text-[10px] font-black uppercase text-zinc-400">Termômetro do Processo</h4>
+                          <p className="text-sm font-black text-zinc-900 border-l-4 border-primary pl-4 uppercase whitespace-pre-wrap">
+                            {result.parecer.termometro}
                           </p>
-                        </section>
-                        
-                        <section className="space-y-3">
-                          <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-amber-400 rounded-full" /> Risco de Decisão
-                          </h4>
-                          <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
-                            <p className="text-xs font-black text-amber-900">
-                              {result.parecer.risco}
-                            </p>
-                          </div>
-                        </section>
-                        
-                        <section className="space-y-3">
-                          <h4 className="text-[10px] font-black uppercase text-zinc-400 flex items-center gap-2">
-                            <div className="h-1 w-4 bg-zinc-900 rounded-full" /> Sugestão Operacional
-                          </h4>
-                          <p className="text-xs font-bold text-zinc-800 pl-4 border-l-4 border-zinc-900">
-                            {result.parecer.sugestao}
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-[10px] font-black uppercase text-zinc-400">Tradução do Evento</h4>
+                          <p className="text-xs font-medium text-zinc-700 leading-relaxed whitespace-pre-wrap">
+                            {result.parecer.traducao}
                           </p>
-                        </section>
-
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-8 border-t border-zinc-100">
-                          <div className="bg-zinc-50 p-3 rounded-lg">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase">Tribunal</p>
-                            <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.tribunal}</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                          <div className="space-y-1">
+                            <h4 className="text-[10px] font-black uppercase text-red-500">Alertas Críticos</h4>
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                              <p className="text-[11px] font-bold text-red-900 leading-tight whitespace-pre-wrap">
+                                {result.parecer.alertas}
+                              </p>
+                            </div>
                           </div>
-                          <div className="bg-zinc-50 p-3 rounded-lg">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase">Órgão</p>
-                            <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.orgao}</p>
-                          </div>
-                          <div className="bg-zinc-50 p-3 rounded-lg">
-                            <p className="text-[8px] font-black text-zinc-400 uppercase">Sincronia</p>
-                            <p className="text-[9px] font-black text-zinc-900 truncate">{result.metadata?.ultimaAtualizacao}</p>
+                          <div className="space-y-1">
+                            <h4 className="text-[10px] font-black uppercase text-zinc-900">Plano de Ação (HOJE)</h4>
+                            <div className="bg-zinc-900 p-4 rounded-xl">
+                              <p className="text-[11px] font-black text-white leading-tight whitespace-pre-wrap">
+                                {result.parecer.plano_acao}
+                              </p>
+                            </div>
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="border-2 border-green-200 rounded-2xl overflow-hidden bg-white shadow-lg shadow-green-100">
+                      <div className="bg-green-50 border-b border-green-200 p-4 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-green-600 text-white font-black text-[9px] uppercase tracking-widest">
+                            📱 2. MENSAGEM WHATSAPP
+                          </Badge>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 gap-2 text-green-700 hover:text-green-900 hover:bg-green-100 font-black text-[10px]"
+                          onClick={() => copyToClipboard(result.parecer.whatsapp)}
+                        >
+                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {copied ? 'COPIADO' : 'COPIAR MENSAGEM'}
+                        </Button>
+                      </div>
+                      <div className="p-8 bg-white relative">
+                         <div className="absolute top-4 right-4 opacity-5">
+                            <MessageSquare className="h-20 w-20 text-green-600" />
+                         </div>
+                         <p className="text-sm font-bold text-zinc-700 leading-relaxed whitespace-pre-wrap">
+                           {result.parecer.whatsapp}
+                         </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-900 rounded-2xl p-6 flex items-center justify-between text-white shadow-xl">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                          <CalendarClock className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-zinc-400">📅 3. GATILHO DE RETORNO</p>
+                          <p className="text-xs font-bold uppercase tracking-widest">Próximo Follow-up Sugerido</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge className="bg-primary text-white font-black px-4 py-2 text-md">
+                          {result.parecer.followup}
+                        </Badge>
                       </div>
                     </div>
                   </div>
@@ -211,14 +275,14 @@ export function OmniReportView() {
           </div>
 
           <div className="space-y-6">
-            <Card className="border-2 shadow-lg bg-white">
+            <Card className="border-2 shadow-lg bg-zinc-900 text-white overflow-hidden">
               <CardContent className="p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <ShieldCheck className="h-5 w-5 text-zinc-900" />
-                  <span className="font-black uppercase text-xs">Edge Compliance</span>
+                <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
+                  <div className="p-2 bg-primary rounded-lg text-white"><TrendingUp className="h-5 w-5" /></div>
+                  <span className="font-black uppercase text-xs tracking-widest">Estratégia V50 Elite</span>
                 </div>
-                <p className="text-[10px] text-zinc-500 font-medium leading-relaxed uppercase">
-                  Operando via Cloudflare Edge Runtime. Chamadas de IA isoladas para garantir 100% de privacidade e conformidade com o novo paradigma independente.
+                <p className="text-[10px] text-zinc-400 font-bold leading-relaxed uppercase">
+                  Script unificado para antecipação de crise e acolhimento imediato do cliente jurídico jurídico.
                 </p>
               </CardContent>
             </Card>

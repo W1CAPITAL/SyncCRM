@@ -1,25 +1,25 @@
-
 'use client';
 
-type ErrorEvents = {
-  'permission-error': (error: any) => void;
+/**
+ * @fileOverview Emissor de Erros - Refatorado para objeto literal para evitar erro de 'super' keyword.
+ */
+
+type Listener = (error: any) => void;
+const listeners: Record<string, Listener[]> = {};
+
+export const errorEmitter = {
+  on(event: string, listener: Listener) {
+    if (!listeners[event]) listeners[event] = [];
+    listeners[event].push(listener);
+  },
+  off(event: string, listener: Listener) {
+    if (listeners[event]) {
+      listeners[event] = listeners[event].filter((l) => l !== listener);
+    }
+  },
+  emit(event: string, error: any) {
+    if (listeners[event]) {
+      listeners[event].forEach((l) => l(error));
+    }
+  }
 };
-
-class ErrorEmitter {
-  private listeners: { [K in keyof ErrorEvents]?: ErrorEvents[K][] } = {};
-
-  on<K extends keyof ErrorEvents>(event: K, listener: ErrorEvents[K]) {
-    if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event]?.push(listener);
-  }
-
-  off<K extends keyof ErrorEvents>(event: K, listener: ErrorEvents[K]) {
-    this.listeners[event] = this.listeners[event]?.filter((l) => l !== listener);
-  }
-
-  emit<K extends keyof ErrorEvents>(event: K, ...args: Parameters<ErrorEvents[K]>) {
-    this.listeners[event]?.forEach((listener) => (listener as any)(...args));
-  }
-}
-
-export const errorEmitter = new ErrorEmitter();

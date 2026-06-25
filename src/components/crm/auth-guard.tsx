@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,29 +6,38 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Database, Lock, LogIn, Loader2, Copyright } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+/**
+ * AuthGuard V50 - Proteção de Acesso Independente com Persistência em Borda.
+ */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const authStatus = sessionStorage.getItem('is_authenticated') === 'true';
+    setIsMounted(true);
+    // Recupera o status de autenticação do localStorage para resiliência a restarts
+    const authStatus = localStorage.getItem('crm_auth_status') === 'true';
     if (authStatus) setIsAuthenticated(true);
   }, []);
 
-  const handleLoginSimulation = async () => {
+  const handleLogin = async () => {
     setIsLoggingIn(true);
-    // Simulação de autenticação rápida para modo independente
+    // Simulação de handshake de segurança
     setTimeout(() => {
       setIsAuthenticated(true);
-      sessionStorage.setItem('is_authenticated', 'true');
+      localStorage.setItem('crm_auth_status', 'true');
       setIsLoggingIn(false);
       toast({
         title: "Acesso Autorizado",
-        description: "Bem-vindo ao SyncCRM V12 Independente!",
+        description: "Bem-vindo ao SyncCRM V50 Elite!",
       });
-    }, 800);
+    }, 600);
   };
+
+  // Previne erros de hidratação no servidor
+  if (!isMounted) return null;
 
   if (isAuthenticated) {
     return <>{children}</>;
@@ -37,7 +45,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-zinc-50 p-4">
-      <Card className="w-full max-w-md border-2 shadow-2xl bg-white">
+      <Card className="w-full max-w-md border-2 shadow-2xl bg-white animate-in fade-in zoom-in duration-300">
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-lg">
             <Database className="h-7 w-7" />
@@ -54,20 +62,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               Silo de Dados Privado
             </div>
             <p className="text-[12px] leading-relaxed">
-              O SyncCRM opera agora em modo independente. Seus dados são processados localmente e sincronizados diretamente com seu backend proprietário.
+              O SyncCRM opera em modo independente. Seus dados são processados localmente e sincronizados diretamente com seu backend de borda.
             </p>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button 
             className="w-full h-14 text-md font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-xl transition-all active:scale-[0.98]" 
-            onClick={handleLoginSimulation}
+            onClick={handleLogin}
             disabled={isLoggingIn}
           >
             {isLoggingIn ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                CONECTANDO...
+                AUTORIZANDO...
               </span>
             ) : (
               <span className="flex items-center gap-2">
@@ -81,12 +89,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 mb-1">
               <Copyright className="h-3 w-3 text-zinc-300" />
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.3em]">
-                Todos os direitos Reservados | W1 Capital
+                W1 CAPITAL | V50 ELITE
               </p>
             </div>
-            <p className="text-[12px] font-black text-zinc-900 uppercase tracking-tight">
-              Davi Alves Figueredo
-            </p>
           </div>
         </CardFooter>
       </Card>

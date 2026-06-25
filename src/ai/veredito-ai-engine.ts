@@ -1,116 +1,105 @@
 
+'use server';
 /**
- * @fileOverview Motor de Inteligência Veredito AI V42 - Biblioteca de Servidor.
- * Independente de Server Actions para compatibilidade total com API Routes.
+ * @fileOverview Motor de Inteligência Veredito AI V51 Elite.
+ * Focado em extração cirúrgica de dados e validação de CNPJs Bancários.
  */
 
-import { callOpenRouter, safeJsonParse, DATAJUD_API_KEY } from '@/lib/openrouter';
+import { callOpenRouter, safeJsonParse, getBankCNPJ } from '@/lib/openrouter';
 
-function ensureString(val: any): string {
-  if (val === null || val === undefined) return "Não informado";
-  if (typeof val === 'string') return val;
-  if (Array.isArray(val)) return val.map(item => ensureString(item)).join("\n• ");
-  if (typeof val === 'object') return JSON.stringify(val);
-  return String(val);
+function cleanAiString(val: any): string {
+  if (val === null || val === undefined) return "";
+  let str = String(val);
+  str = str.replace(/\*\*/g, '')
+           .replace(/###/g, '')
+           .replace(/##/g, '')
+           .replace(/#/g, '')
+           .replace(/---/g, '')
+           .replace(/[`_]/g, '')
+           .replace(/^[-*+]\s+/gm, '') 
+           .trim();
+  return str;
 }
 
 /**
- * Busca dados no DataJud.
+ * Processa dados brutos para extrair qualificação de procuração.
+ * V51 ELITE: Foca cirurgicamente nos dados da parte e ignora cláusulas contratuais.
  */
-export async function fetchProcessData(cnj: string) {
-  const cleanCnj = cnj.replace(/\D/g, '');
-  if (cleanCnj.length < 10) return { success: false, error: "CNJ Inválido." };
-
-  const fullCnj = cnj.padStart(20, '0');
-  const tr = fullCnj.substring(14, 16);
-  
-  const aliasMap: Record<string, string> = {
-    '19': 'tjrj', '13': 'tjmg', '26': 'tjsp', '07': 'tjdft', '21': 'tjrs', '05': 'tjba'
-  };
-  const alias = aliasMap[tr] || 'tjsp';
-  const url = `https://api-publica.datajud.cnj.jus.br/api_publica_${alias}/_search`;
+export async function processarProcuracao(dadosBrutos: string) {
+  if (!dadosBrutos.trim()) return { success: false, error: "Dados não informados." };
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 
-        'Authorization': 'APIKey ' + DATAJUD_API_KEY, 
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify({ query: { term: { "numeroProcesso.keyword": cleanCnj } } }),
-      cache: 'no-store'
-    });
-
-    if (!response.ok) throw new Error(`DataJud Indisponível (HTTP ${response.status})`);
-
-    const result = await response.json();
-    const hits = result.hits?.hits || [];
+    const promptText = `AJA COMO: Especialista em Legal Ops (V51 Elite). 
+    Sua tarefa é analisar o texto abaixo e extrair EXCLUSIVAMENTE os dados necessários para uma procuração judicial.
     
-    if (hits.length === 0) return { success: false, error: "Processo não encontrado no DataJud." };
+    INSTRUÇÃO DE EXTRAÇÃO CIRÚRGICA:
+    - IGNORE todas as cláusulas contratuais, datas de pagamento, multas ou textos irrelevantes.
+    - Foque APENAS no preâmbulo/cabeçalho para achar: Nome Completo, Nacionalidade, Estado Civil, Profissão, RG, CPF, Endereço e E-mail.
+    - Identifique o BANCO RÉU que é objeto da revisão (ex: Votorantim, Pan, Itau).
+    - Se o e-mail não estiver explícito, retorne "NÃO INFORMADO".
+    - Responda APENAS com o JSON estruturado.
 
-    return { success: true, rawProcess: hits[0]._source };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
+    TEXTO PARA ANÁLISE:
+    "${dadosBrutos.substring(0, 15000)}"
 
-/**
- * Lógica de Execução - Chamada pela API Route.
- */
-export async function processarVeredito(cnj: string, engine: string) {
-  if (!cnj.trim()) return { success: false, error: "CNJ não informado." };
-
-  try {
-    const dados = await fetchProcessData(cnj);
-    if (!dados.success) return dados;
-
-    const rawProcess = dados.rawProcess;
-    const metadata = {
-      orgao: ensureString(rawProcess.orgaoJulgador),
-      classe: ensureString(rawProcess.classe),
-      tribunal: ensureString(rawProcess.tribunal || "Tribunal de Justiça"),
-      ultimaAtualizacao: rawProcess.dataHoraUltimaAtualizacao ? new Date(rawProcess.dataHoraUltimaAtualizacao).toLocaleString('pt-BR') : "Desconhecida"
-    };
-
-    // Modo Handoff para Grok (Cliente processa a IA)
-    if (engine === 'grok') {
-      return { success: true, mode: 'client_handoff', cnj, metadata, rawProcess };
-    }
-
-    // Modo Local (Servidor processa heurística)
-    if (engine === 'local') {
-      return {
-        success: true,
-        mode: 'server_complete',
-        cnj,
-        metadata,
-        parecer: {
-          resumo: `Análise Heurística: Processo de ${metadata.classe} no ${metadata.orgao}.`,
-          risco: "Risco Moderado detectado por motor local.",
-          sugestao: "Consultar movimentações recentes via tribunal."
-        }
-      };
-    }
-
-    // Modo OpenRouter (Servidor processa a IA)
-    const promptText = `Analise este processo judicial e gere um parecer técnico: ${JSON.stringify(rawProcess)}. 
-    Responda APENAS em JSON: {"resumo": "...", "risco": "...", "sugestao": "..."}.`;
+    RETORNE APENAS JSON PURO:
+    {
+      "nome": "NOME COMPLETO",
+      "nacionalidade": "brasileiro(a)",
+      "estadoCivil": "estado civil",
+      "profissao": "profissão",
+      "rg": "número do rg",
+      "cpf": "número do cpf",
+      "endereco": "Logradouro, Nº, Bairro, Cidade - UF, CEP",
+      "email": "email ou NÃO INFORMADO",
+      "bancoReu": "NOME DO BANCO"
+    }`;
 
     const aiResponse = await callOpenRouter(promptText, true);
     const parsed = safeJsonParse(aiResponse);
 
+    if (!parsed) throw new Error("Falha na extração cirúrgica de dados via V51.");
+
+    // Validação de CNPJ via motor de busca real
+    const bancoDetectado = cleanAiString(parsed.bancoReu || "BANCO NÃO IDENTIFICADO");
+    const cnpjReal = getBankCNPJ(bancoDetectado);
+
     return {
       success: true,
-      mode: 'server_complete',
-      cnj,
-      metadata,
-      parecer: {
-        resumo: ensureString(parsed?.resumo || "Resumo gerado com sucesso."),
-        risco: ensureString(parsed?.risco || "Análise de risco concluída."),
-        sugestao: ensureString(parsed?.sugestao || "Seguir rito processual padrão.")
+      dados: {
+        nome: cleanAiString(parsed.nome),
+        nacionalidade: cleanAiString(parsed.nacionalidade),
+        estadoCivil: cleanAiString(parsed.estadoCivil),
+        profissao: cleanAiString(parsed.profissao),
+        rg: cleanAiString(parsed.rg),
+        cpf: cleanAiString(parsed.cpf),
+        endereco: cleanAiString(parsed.endereco),
+        email: cleanAiString(parsed.email),
+        bancoReu: bancoDetectado,
+        cnpjReu: cnpjReal
       }
     };
   } catch (e: any) {
-    return { success: false, error: "Falha Crítica no Gateway: " + e.message };
+    return { success: false, error: "Erro V51 na extração: " + e.message };
   }
+}
+
+export async function processarVeredito(cnj: string, engine: string) {
+  if (!cnj.trim()) return { success: false, error: "CNJ não informado." };
+  try {
+    const promptText = `AJA COMO: Diretor de Legal Ops (V51 Elite). Analise o processo: ${cnj}. 
+    PROIBIDO MARKDOWN. Retorne JSON: {termometro, traducao, alertas, plano_acao, whatsapp, followup}.`;
+    const aiResponse = await callOpenRouter(promptText, true);
+    const parsed = safeJsonParse(aiResponse);
+    return { success: true, parecer: parsed };
+  } catch (e: any) { return { success: false, error: e.message }; }
+}
+
+export async function processarChat(mensagem: string, historico: any[], engine: string) {
+  try {
+    const promptText = `AJA COMO: Diretor de Operações Jurídicas Elite (V51). 
+    Responda em parágrafos limpos sem markdown. Mensagem: ${mensagem}`;
+    const aiResponse = await callOpenRouter(promptText, false);
+    return { success: true, resposta: cleanAiString(aiResponse) };
+  } catch (e: any) { return { success: false, error: e.message }; }
 }
