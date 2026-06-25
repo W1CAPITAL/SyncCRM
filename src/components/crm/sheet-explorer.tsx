@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -16,22 +15,19 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, ShieldCheck, Cpu, Zap, MessageSquare, FileText,
+  BrainCircuit, ShieldCheck, Zap, MessageSquare,
   Loader2
 } from "lucide-react";
 
-// Importações dinâmicas para isolar bibliotecas pesadas e evitar erro de 'super' keyword no build
-const DocGeneratorView = dynamic(() => import("./doc-generator-view").then(mod => mod.DocGeneratorView), {
-  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>,
-  ssr: false
-});
-
+// Importações dinâmicas para isolar componentes AI e pesados
 const OmniReportView = dynamic(() => import("./omni-report-view").then(mod => mod.OmniReportView), {
-  ssr: false
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>
 });
 
 const AiChatView = dynamic(() => import("./ai-chat").then(mod => mod.AiChatView), {
-  ssr: false
+  ssr: false,
+  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>
 });
 
 import { DashboardView } from "./dashboard-view";
@@ -97,7 +93,7 @@ const parseCSV = (csvText: string) => {
 export function SheetExplorer() {
   const { toast } = useToast();
 
-  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat' | 'docs_gen'>('settings');
+  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat'>('settings');
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [aiEngine, setAiEngine] = useState<string>("openrouter");
   const [isSyncing, setIsSyncing] = useState(false);
@@ -220,7 +216,6 @@ export function SheetExplorer() {
                   { id: 'prazos', icon: Clock, label: 'Controle Prazos' },
                   { id: 'omni', icon: BrainCircuit, label: 'OmniReport AI' },
                   { id: 'chat', icon: MessageSquare, label: 'Chat Estratégico' },
-                  { id: 'docs_gen', icon: FileText, label: 'Gerador de Docs' },
                   { id: 'reports', icon: BarChart3, label: 'Analytics Hub' },
                   { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
                   { id: 'settings', icon: Settings, label: 'Configurações' },
@@ -352,7 +347,6 @@ export function SheetExplorer() {
                     {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={() => {}} onAction={() => {}} /> :
                      view === 'omni' ? <OmniReportView /> :
                      view === 'chat' ? <AiChatView /> :
-                     view === 'docs_gen' ? <DocGeneratorView /> :
                      view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} onReschedule={() => {}} /> :
                      view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
                      view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
