@@ -1,3 +1,4 @@
+
 import { openNextConfig } from "@opennextjs/cloudflare";
 
 /**

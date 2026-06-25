@@ -1,3 +1,4 @@
+
 name = "synccrm"
 main = ".open-next/worker.mjs"
 compatibility_date = "2024-09-23"

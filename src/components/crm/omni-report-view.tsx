@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BrainCircuit, Loader2, Search, Cpu, Zap, AlertCircle, Copy, 
   Check, MessageSquare, CalendarClock, Target,
-  Landmark, ChevronRight, History
+  ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
