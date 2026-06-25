@@ -1,14 +1,14 @@
-
 'use server';
 /**
  * @fileOverview Motor de Inteligência Veredito AI V51 Elite.
- * Focado em análise cirúrgica e histórico digital DataJud.
+ * Focado em análise cirúrgica e histórico digital DataJud com blindagem de strings.
  */
 
 import { callOpenRouter, safeJsonParse, getBankCNPJ } from '@/lib/openrouter';
 
 /**
  * Limpa artefatos de markdown e força conversão para string.
+ * Blindagem absoluta contra erro 'replace is not a function'.
  */
 function cleanAiString(val: any): string {
   const str = String(val || "");
@@ -42,14 +42,14 @@ export async function processarVeredito(cnj: string, engine: string) {
     Analise o processo CNJ: ${cnj}. 
     Considere o Histórico Completo: ${JSON.stringify(historicoCompleto)}.
     
-    INSTRUÇÃO: Proibido respostas genéricas. Dê uma decisão cirúrgica baseada nos fatos.
+    INSTRUÇÃO: Proibido respostas genéricas. Dê uma decisão cirúrgica baseada nos fatos para HOJE.
     RETORNE APENAS JSON PURO: 
     {
       "termometro": "Cenário crítico ou favorável em 1 frase.",
       "traducao": "O que aconteceu tecnicamente em 1 parágrafo limpo.",
       "alertas": "Riscos imediatos baseados no histórico.",
-      "plano_acao": "Ação decisiva para HOJE.",
-      "whatsapp": "Mensagem executiva para o cliente.",
+      "plano_acao": "Ação decisiva para HOJE (Comando direto).",
+      "whatsapp": "Mensagem executiva profissional para o cliente.",
       "followup": "Data e motivo estratégico."
     }`;
 
@@ -58,7 +58,14 @@ export async function processarVeredito(cnj: string, engine: string) {
     
     return { 
       success: true, 
-      parecer: parsed,
+      parecer: {
+        termometro: cleanAiString(parsed?.termometro),
+        traducao: cleanAiString(parsed?.traducao),
+        alertas: cleanAiString(parsed?.alertas),
+        plano_acao: cleanAiString(parsed?.plano_acao),
+        whatsapp: cleanAiString(parsed?.whatsapp),
+        followup: cleanAiString(parsed?.followup)
+      },
       historico: historicoCompleto
     };
   } catch (e: any) { return { success: false, error: e.message }; }

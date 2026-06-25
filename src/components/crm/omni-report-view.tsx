@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -15,6 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
+/**
+ * Blindagem absoluta contra erro 'replace is not a function'.
+ * Força conversão para string antes de manipular.
+ */
 function cleanClientString(str: any): string {
   const val = String(str || "");
   if (!val || val === "undefined" || val === "null") return "";
@@ -63,22 +66,22 @@ export function OmniReportView() {
           
           const prompt = `AJA COMO: Diretor de Legal Ops de Elite (V51). 
           Analise o CNJ: ${cnj}. 
-          HISTÓRICO DATAJUD: ${JSON.stringify(data.historico)}.
+          HISTÓRICO INTEGRAL DATAJUD: ${JSON.stringify(data.historico)}.
           
-          DECISÃO ESTRATÉGICA: Baseie-se no histórico para dar uma ordem de ação cirúrgica. 
-          PROIBIDO MARKDOWN. Responda APENAS em JSON PURO:
+          DECISÃO ESTRATÉGICA: Baseie-se no histórico integral para dar uma ordem de ação cirúrgica. 
+          PROIBIDO RESPOSTAS GENÉRICAS. PROIBIDO MARKDOWN. Responda APENAS em JSON PURO:
           {
-            "termometro": "Cenário real.", 
-            "traducao": "Explicação técnica clara.", 
-            "alertas": "Riscos detectados no histórico.", 
-            "plano_acao": "DECISÃO PARA HOJE (NÃO GENÉRICA).", 
-            "whatsapp": "Mensagem para o cliente.", 
-            "followup": "Próxima data estratégica."
+            "termometro": "Cenário real crítico ou favorável.", 
+            "traducao": "O que realmente aconteceu no último evento de forma técnica.", 
+            "alertas": "Riscos reais detectados no histórico de movimentações.", 
+            "plano_acao": "DECISÃO PARA HOJE (ORDEM DIRETA E NÃO GENÉRICA).", 
+            "whatsapp": "Mensagem executiva para o cliente.", 
+            "followup": "Próxima data estratégica baseada no tempo do tribunal."
           }`;
           
           const responsePuter = await puter.ai.chat(prompt, { model: 'x-ai/grok-4.3' });
           const content = responsePuter.message.content;
-          const cleanJson = content.replace(/```json/g, '').replace(/```/g, '').trim();
+          const cleanJson = String(content).replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanJson);
 
           setResult({
@@ -95,7 +98,7 @@ export function OmniReportView() {
         } else {
           setResult(data);
         }
-        toast({ title: "Análise V51 Concluída", description: "Decisão estratégica gerada." });
+        toast({ title: "Análise V51 Concluída", description: "Histórico integral processado." });
       } else {
         setError(data.error);
       }
@@ -134,7 +137,7 @@ export function OmniReportView() {
             <CardHeader className="bg-zinc-900 text-white p-6">
               <CardTitle className="text-lg font-black uppercase tracking-tight flex items-center gap-2">
                 <Target className="h-5 w-5" />
-                Veredito AI V51 (Deep Analysis)
+                Veredito AI V51 (High Fidelity)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
@@ -236,19 +239,19 @@ export function OmniReportView() {
                     </Badge>
                   </div>
 
-                  {/* 4. HISTÓRICO COMPLETO (DATAJUD) */}
+                  {/* 4. HISTÓRICO INTEGRAL (DATAJUD) */}
                   <div className="border-2 border-zinc-100 rounded-2xl overflow-hidden bg-white shadow-inner">
                     <div className="bg-zinc-50 border-b p-4 flex items-center gap-2">
                       <Badge variant="outline" className="border-zinc-300 text-zinc-500 font-black text-[9px] uppercase tracking-widest">
                         🏛️ 4. HISTÓRICO INTEGRAL (DATAJUD V51)
                       </Badge>
                     </div>
-                    <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto scroll-black">
+                    <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto scroll-black">
                       {result.historico?.map((item: any, idx: number) => (
                         <div key={idx} className="flex gap-4 items-start border-b border-zinc-50 pb-4 last:border-0 group">
                           <div className="flex flex-col items-center">
                             <div className="h-3 w-3 rounded-full bg-zinc-200 mt-1 group-hover:bg-primary transition-colors"></div>
-                            {idx !== result.historico.length - 1 && <div className="w-[1px] h-full bg-zinc-100 min-h-[30px]"></div>}
+                            {idx !== result.historico.length - 1 && <div className="w-[1px] h-full bg-zinc-100 min-h-[40px]"></div>}
                           </div>
                           <div className="flex-1">
                             <p className="text-[9px] font-black text-zinc-400 uppercase">{item.data}</p>

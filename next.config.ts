@@ -1,4 +1,3 @@
-
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -36,11 +35,14 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     // Regra CRÍTICA para Cloudflare/Webpack 5: 
     // Resolve o erro 'super keyword outside a method' em arquivos .mjs
-    // Isso permite que bibliotecas como docx funcionem em produção.
+    // Isso permite que o compilador processe classes ES6 de bibliotecas modernas.
     config.module.rules.push({
       test: /\.mjs$/,
       include: /node_modules/,
       type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false,
+      },
     });
     return config;
   }

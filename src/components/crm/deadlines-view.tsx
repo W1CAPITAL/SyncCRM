@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -21,7 +20,7 @@ interface DeadlinesViewProps {
 
 const INACTIVE_KEYWORDS = [
   "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-  "JULGADO", "CANCELADO", "INATIVO"
+  "JULGADO", "CANCELADO", "INATIVO", "SUCUMBENCIA"
 ];
 
 export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
@@ -206,7 +205,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
           {renderGroup("🚨 Urgência Máxima (Realmente Crítico)", groups.reallyOverdue, 'really_overdue')}
           {renderGroup("🟠 Atrasos Recentes (Crítico Comum)", groups.commonOverdue, 'common_overdue')}
           {renderGroup("🟡 Compromissos de Hoje", groups.today, 'today')}
-          {renderGroup("🟢 Pros Vencimentos", groups.upcoming, 'upcoming')}
+          {renderGroup("🟢 Próximos Vencimentos", groups.upcoming, 'upcoming')}
           {renderGroup("🔘 Encerrados com Agendamento", groups.closedWithAppointment, 'closed')}
         </div>
       </div>
