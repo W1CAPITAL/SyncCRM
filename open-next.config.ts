@@ -1,6 +1,6 @@
 /**
  * Configuração OpenNext para Cloudflare Pages.
- * Exporta um objeto de configuração padrão para compatibilidade máxima.
+ * Utiliza export default para evitar erros de importação nominativa.
  */
 const config = {
   default: {

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   BrainCircuit, Loader2, Search, Cpu, Zap, AlertCircle, Copy, 
   Check, MessageSquare, CalendarClock, Target,
-  ChevronRight
+  ChevronRight, History, ShieldAlert
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 
 /**
  * Blindagem absoluta contra erro 'replace is not a function'.
- * Força conversão para string antes de manipular.
  */
 function cleanClientString(str: any): string {
   const val = String(str || "");
@@ -156,7 +155,7 @@ export function OmniReportView() {
 
               {error && (
                 <Alert variant="destructive" className="border-2 bg-red-50">
-                  <AlertCircle className="h-4 w-4" />
+                  <ShieldAlert className="h-4 w-4" />
                   <AlertTitle className="font-black uppercase text-[10px]">Falha na Análise</AlertTitle>
                   <AlertDescription className="text-xs font-bold">{error}</AlertDescription>
                 </Alert>
@@ -250,7 +249,10 @@ export function OmniReportView() {
                       {result.historico?.map((item: any, idx: number) => (
                         <div key={idx} className="flex gap-4 items-start border-b border-zinc-50 pb-4 last:border-0 group">
                           <div className="flex flex-col items-center">
-                            <div className="h-3 w-3 rounded-full bg-zinc-200 mt-1 group-hover:bg-primary transition-colors"></div>
+                            <div className={cn(
+                               "h-3 w-3 rounded-full mt-1 transition-colors",
+                               idx === 0 ? "bg-primary animate-pulse" : "bg-zinc-200 group-hover:bg-zinc-400"
+                            )}></div>
                             {idx !== result.historico.length - 1 && <div className="w-[1px] h-full bg-zinc-100 min-h-[40px]"></div>}
                           </div>
                           <div className="flex-1">
