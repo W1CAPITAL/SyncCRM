@@ -10,8 +10,10 @@ import { FileText, Download, Loader2, Sparkles, CheckCircle2, FileUp, Upload } f
 import { useToast } from "@/hooks/use-toast";
 
 /**
- * Gerador de Documentos V51 Elite Cloudflare Fix.
- * Utiliza importações dinâmicas e isolamento total para evitar erro de 'super' keyword.
+ * Gerador de Documentos V51 Elite - Arquitetura de Isolamento Total.
+ * 
+ * ATENÇÃO: Nenhuma biblioteca pesada (docx, pdfjs-dist) pode ser importada no topo do arquivo.
+ * Isso evita o erro de sintaxe 'super keyword' durante o build do Cloudflare/Turbopack.
  */
 export function DocGeneratorView() {
   const { toast } = useToast();
@@ -31,8 +33,10 @@ export function DocGeneratorView() {
 
     setIsPdfLoading(true);
     try {
-      // Importação dinâmica para evitar erro de build no Cloudflare
+      // Importação dinâmica isolada para evitar processamento falho no build do servidor
       const pdfjs = await import("pdfjs-dist");
+      
+      // Configuração de worker via CDN para máxima compatibilidade Cloudflare
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
       const arrayBuffer = await file.arrayBuffer();
@@ -52,7 +56,7 @@ export function DocGeneratorView() {
       setInput(fullText);
       toast({ title: "PDF Processado", description: "Dados prontos para extração cirúrgica." });
     } catch (error: any) {
-      console.error(error);
+      console.error("PDF Processing Error:", error);
       toast({ variant: "destructive", title: "Erro no PDF", description: "Falha ao processar arquivo." });
     } finally {
       setIsPdfLoading(false);
@@ -91,10 +95,9 @@ export function DocGeneratorView() {
     setIsDownloading(true);
 
     try {
-      // Importação dinâmica absoluta para isolar o erro de 'super' keyword
-      const docx = await import("docx");
+      // Importação dinâmica absoluta: única forma de evitar 'super keyword unexpected' no Cloudflare
+      const { Document, Packer, Paragraph, TextRun, AlignmentType, UnderlineType } = await import("docx");
       const fileSaver = await import("file-saver");
-      const { Document, Packer, Paragraph, TextRun, AlignmentType, UnderlineType } = docx;
 
       const dataAtual = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -183,7 +186,7 @@ export function DocGeneratorView() {
       fileSaver.saveAs(blob, `Procuracao_${extractedData.nome.replace(/\s/g, '_')}.docx`);
       toast({ title: "Documento Gerado", description: "O download iniciou automaticamente." });
     } catch (e: any) {
-      console.error(e);
+      console.error("DOCX Generation Error:", e);
       toast({ variant: "destructive", title: "Erro na Geração", description: "Falha ao compilar o DOCX." });
     } finally {
       setIsDownloading(false);
@@ -233,7 +236,7 @@ export function DocGeneratorView() {
           </Card>
 
           {extractedData && (
-            <Card className="border-2 border-green-200 shadow-xl bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+            <Card className="border-2 border-green-200 shadow-xl bg-white overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
               <CardHeader className="bg-green-50 p-6">
                 <CardTitle className="text-sm font-black uppercase tracking-tight text-green-800 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4" />

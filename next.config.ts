@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Transpilação de pacotes com classes ES6 modernas para evitar erro de 'super' keyword
+  // Transpilação forçada para bibliotecas com classes ES6 modernas
   transpilePackages: ['docx', 'pdfjs-dist'],
   images: {
     remotePatterns: [
@@ -34,7 +34,9 @@ const nextConfig: NextConfig = {
     ],
   },
   webpack: (config) => {
-    // Regra crítica para Cloudflare: Trata .mjs de bibliotecas modernas com compatibilidade automática
+    // Regra CRÍTICA para Cloudflare/Webpack 5: 
+    // Resolve o erro 'super keyword outside a method' em arquivos .mjs
+    // Isso permite que bibliotecas como docx funcionem em produção.
     config.module.rules.push({
       test: /\.mjs$/,
       include: /node_modules/,

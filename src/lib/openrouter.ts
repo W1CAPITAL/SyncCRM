@@ -32,7 +32,7 @@ const BANK_CNPJ_MAP: Record<string, string> = {
  * Busca o CNPJ real de um banco.
  */
 export function getBankCNPJ(bankName: string): string {
-  const upperName = bankName.toUpperCase();
+  const upperName = String(bankName || "").toUpperCase();
   for (const [key, cnpj] of Object.entries(BANK_CNPJ_MAP)) {
     if (upperName.includes(key)) return cnpj;
   }
@@ -81,10 +81,15 @@ export async function callOpenRouter(promptText: string, isJson: boolean = false
   }
 }
 
-export function safeJsonParse(text: string) {
+export function safeJsonParse(text: any) {
   try {
     if (!text) return null;
-    const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    if (typeof text === 'object') return text;
+    
+    const clean = String(text)
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
     return JSON.parse(clean);
   } catch (e) {
     return null;

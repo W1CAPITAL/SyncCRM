@@ -42,7 +42,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
 
-      // Lógica V51 Elite: Encerrados com agendamento são isolados da métrica de atraso crítico/comum
+      // Lógica V51 Elite: Encerrados com agendamento são isolados para não poluir KPIs de atraso
       if (isClosed && hasAppointment) {
         try {
           const parts = proxStr.split(' ')[0].split(/[\/\-]/);
@@ -206,7 +206,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
           {renderGroup("🚨 Urgência Máxima (Realmente Crítico)", groups.reallyOverdue, 'really_overdue')}
           {renderGroup("🟠 Atrasos Recentes (Crítico Comum)", groups.commonOverdue, 'common_overdue')}
           {renderGroup("🟡 Compromissos de Hoje", groups.today, 'today')}
-          {renderGroup("🟢 Próximos Vencimentos", groups.upcoming, 'upcoming')}
+          {renderGroup("🟢 Pros Vencimentos", groups.upcoming, 'upcoming')}
           {renderGroup("🔘 Encerrados com Agendamento", groups.closedWithAppointment, 'closed')}
         </div>
       </div>
