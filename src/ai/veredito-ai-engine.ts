@@ -29,13 +29,14 @@ export async function processarProcuracao(dadosBrutos: string) {
   if (!dadosBrutos.trim()) return { success: false, error: "Dados não informados." };
 
   try {
-    const promptText = `AJA COMO: Especialista em Legal Ops (V51 Elite). 
-    Sua tarefa é analisar o texto abaixo e extrair EXCLUSIVAMENTE os dados necessários para uma procuração judicial.
+    const promptText = `AJA COMO: Diretor de Legal Ops (V51 Elite). 
+    Sua tarefa é analisar o texto de um CONTRATO e extrair EXCLUSIVAMENTE os dados de qualificação do cliente para uma procuração judicial.
     
-    INSTRUÇÃO DE EXTRAÇÃO CIRÚRGICA:
-    - IGNORE todas as cláusulas contratuais, datas de pagamento, multas ou textos irrelevantes.
-    - Foque APENAS no preâmbulo/cabeçalho para achar: Nome Completo, Nacionalidade, Estado Civil, Profissão, RG, CPF, Endereço e E-mail.
-    - Identifique o BANCO RÉU que é objeto da revisão (ex: Votorantim, Pan, Itau).
+    INSTRUÇÕES DE EXTRAÇÃO CIRÚRGICA:
+    - IGNORE todas as cláusulas contratuais (objeto, obrigações, multas, foro).
+    - IGNORE textos de rodapé, números de página ou logs de sistema.
+    - Foque APENAS no preâmbulo para achar: Nome Completo, Nacionalidade, Estado Civil, Profissão, RG, CPF, Endereço e E-mail.
+    - Identifique o BANCO RÉU (ex: Votorantim, Pan, Itau) que é citado como credor ou objeto da revisão.
     - Se o e-mail não estiver explícito, retorne "NÃO INFORMADO".
     - Responda APENAS com o JSON estruturado.
 

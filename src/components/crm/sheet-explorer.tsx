@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,15 +16,28 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, ShieldCheck, Cpu, Zap, MessageSquare, FileText
+  BrainCircuit, ShieldCheck, Cpu, Zap, MessageSquare, FileText,
+  Loader2
 } from "lucide-react";
+
+// Importações dinâmicas para isolar bibliotecas pesadas e evitar erro de 'super' keyword no build
+const DocGeneratorView = dynamic(() => import("./doc-generator-view").then(mod => mod.DocGeneratorView), {
+  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>,
+  ssr: false
+});
+
+const OmniReportView = dynamic(() => import("./omni-report-view").then(mod => mod.OmniReportView), {
+  ssr: false
+});
+
+const AiChatView = dynamic(() => import("./ai-chat").then(mod => mod.AiChatView), {
+  ssr: false
+});
+
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
 import { ReportsView } from "./reports-view";
 import { DocumentsView } from "./documents-view";
-import { OmniReportView } from "./omni-report-view";
-import { AiChatView } from "./ai-chat";
-import { DocGeneratorView } from "./doc-generator-view";
 import { useToast } from "@/hooks/use-toast";
 
 export interface SheetIndices {
@@ -183,7 +197,7 @@ export function SheetExplorer() {
   }, [localRecords, searchTerm, selectedState, indices.process]);
 
   const handleLogout = () => {
-    sessionStorage.removeItem('is_authenticated');
+    localStorage.removeItem('crm_auth_status');
     window.location.reload();
   };
 
