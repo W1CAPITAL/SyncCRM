@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { processarVeredito } from '@/ai/veredito-ai-engine';
 
 /**
+ * Força a execução na Edge Runtime para compatibilidade total com Cloudflare Pages.
+ */
+export const runtime = 'edge';
+
+/**
  * API Route para evitar erro 405 (Method Not Allowed) em hosts estáticos como Cloudflare Pages.
  * Esta rota atua como o gateway dinâmico para o processamento de IA.
  */
