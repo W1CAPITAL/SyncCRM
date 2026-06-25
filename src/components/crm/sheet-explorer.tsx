@@ -10,10 +10,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, ShieldCheck
+  BrainCircuit, ShieldCheck, Cpu, Zap
 } from "lucide-react";
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
@@ -81,6 +82,7 @@ export function SheetExplorer() {
 
   const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni'>('settings');
   const [spreadsheetId, setSpreadsheetId] = useState("");
+  const [aiEngine, setAiEngine] = useState<string>("openrouter");
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedState, setSelectedState] = useState<string>("all");
@@ -92,8 +94,11 @@ export function SheetExplorer() {
   useEffect(() => {
     const savedId = localStorage.getItem('last_spreadsheet_id');
     const savedHeaders = localStorage.getItem('last_headers');
+    const savedEngine = localStorage.getItem('crm_ai_engine') || "openrouter";
+    
     if (savedId) setSpreadsheetId(savedId);
     if (savedHeaders) setHeaders(JSON.parse(savedHeaders));
+    setAiEngine(savedEngine);
   }, []);
 
   const indices = useMemo((): SheetIndices => {
@@ -152,6 +157,12 @@ export function SheetExplorer() {
     } finally { setIsSyncing(false); }
   };
 
+  const handleEngineChange = (val: string) => {
+    setAiEngine(val);
+    localStorage.setItem('crm_ai_engine', val);
+    toast({ title: "Motor de IA Atualizado", description: `Configurado para: ${val.toUpperCase()}` });
+  };
+
   const activeRecords = useMemo(() => {
     return localRecords.map(r => ({ 
       ...r.data, 
@@ -193,7 +204,7 @@ export function SheetExplorer() {
                   { id: 'omni', icon: BrainCircuit, label: 'OmniReport AI' },
                   { id: 'reports', icon: BarChart3, label: 'Analytics Hub' },
                   { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
-                  { id: 'settings', icon: Settings, label: 'JD Usuário' },
+                  { id: 'settings', icon: Settings, label: 'Configurações' },
                 ].map((item) => (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton isActive={view === item.id} onClick={() => setView(item.id as any)} className="text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
@@ -227,12 +238,12 @@ export function SheetExplorer() {
             <main className="flex-1 relative bg-zinc-50 overflow-hidden flex flex-col">
               {view === 'settings' ? (
                 <div className="h-full p-8 overflow-y-auto space-y-8">
-                  <div className="max-w-xl mx-auto space-y-6">
+                  <div className="max-w-xl mx-auto space-y-8">
                     <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
                       <div className="space-y-2 text-center">
                         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-md"><Database className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">JD Usuário - Planilha</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gestão de Dados Silo Privado</p>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Conexão de Dados</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Sincronização com Google Sheets</p>
                       </div>
                       <div className="space-y-4">
                         <Label className="text-[10px] font-black uppercase text-zinc-500">Google Spreadsheet ID</Label>
@@ -243,16 +254,59 @@ export function SheetExplorer() {
                       </Button>
                     </Card>
 
-                    <Card className="p-8 space-y-4 shadow-lg border-2 bg-white rounded-2xl border-zinc-100">
+                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl border-zinc-100">
+                      <div className="space-y-2 text-center">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md"><Zap className="h-7 w-7" /></div>
+                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor de Inteligência</h2>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Selecione o Provedor de Processamento AI</p>
+                      </div>
+                      
+                      <RadioGroup value={aiEngine} onValueChange={handleEngineChange} className="grid grid-cols-1 gap-4">
+                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
+                          <RadioGroupItem value="openrouter" id="engine-openrouter" />
+                          <Label htmlFor="engine-openrouter" className="flex-1 cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs uppercase">OpenRouter (GPT-4o Mini)</span>
+                              <Badge variant="outline" className="text-[8px] font-black border-zinc-300">NUVEM ELITE</Badge>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 font-medium">Melhor performance para pareceres complexos.</p>
+                          </Label>
+                        </div>
+
+                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
+                          <RadioGroupItem value="grok" id="engine-grok" />
+                          <Label htmlFor="engine-grok" className="flex-1 cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs uppercase">Grok AI (xAI via Puter)</span>
+                              <Badge variant="outline" className="text-[8px] font-black border-zinc-900 text-white bg-zinc-900">X-AI ELITE</Badge>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 font-medium">Inteligência ágil e sagaz da xAI.</p>
+                          </Label>
+                        </div>
+
+                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
+                          <RadioGroupItem value="local" id="engine-local" />
+                          <Label htmlFor="engine-local" className="flex-1 cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-xs uppercase">Motor Local (Offline)</span>
+                              <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">HEURÍSTICO</Badge>
+                            </div>
+                            <p className="text-[10px] text-zinc-500 font-medium">Análise baseada em regras locais sem custo de API.</p>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </Card>
+
+                    <Card className="p-8 space-y-4 shadow-lg border-2 bg-zinc-900 text-white rounded-2xl">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-zinc-900 rounded-lg"><ShieldCheck className="h-5 w-5 text-white" /></div>
+                        <div className="p-2 bg-primary rounded-lg text-white"><ShieldCheck className="h-5 w-5" /></div>
                         <div>
-                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Status da Infraestrutura</p>
-                          <p className="text-xs font-black uppercase">OpenRouter AI Ativo (GPT-4o Mini)</p>
+                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Infraestrutura Ativa</p>
+                          <p className="text-xs font-black uppercase">Operando em Modo Independente</p>
                         </div>
                       </div>
                       <p className="text-[10px] text-zinc-400 italic leading-relaxed uppercase">
-                        O SyncCRM opera agora em modo 100% independente utilizando OpenRouter AI. Autonomia total da plataforma garantida.
+                        A arquitetura do SyncCRM é agnóstica a provedores. Seus dados nunca tocam no servidor do sistema, sendo processados diretamente entre o navegador e o motor selecionado.
                       </p>
                     </Card>
                   </div>
