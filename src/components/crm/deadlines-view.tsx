@@ -42,9 +42,22 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
 
-      // Lógica V51 Elite: Encerrados com agendamento são isolados
+      // Lógica V51 Elite: Encerrados com agendamento são isolados da métrica de atraso crítico/comum
       if (isClosed && hasAppointment) {
-        closedWithAppointment.push({ ...row, isClosed: true });
+        try {
+          const parts = proxStr.split(' ')[0].split(/[\/\-]/);
+          let proxDate;
+          if (parts[0].length === 4) proxDate = new Date(proxStr);
+          else {
+            proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yyyy', new Date());
+            if (!isValid(proxDate)) proxDate = parse(proxStr.split(' ')[0], 'dd/MM/yy', new Date());
+          }
+          
+          const isLate = isValid(proxDate) && isBefore(startOfDay(proxDate), today);
+          closedWithAppointment.push({ ...row, isClosed: true, parsedDate: proxDate, isLate });
+        } catch (e) {
+          closedWithAppointment.push({ ...row, isClosed: true, isLate: false });
+        }
         return;
       }
 
@@ -89,7 +102,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       commonOverdue: commonOverdue.sort(sortFn),
       today: todayList, 
       upcoming: upcoming.sort(sortFn),
-      closedWithAppointment: closedWithAppointment
+      closedWithAppointment: closedWithAppointment.sort(sortFn)
     };
   }, [data, indices]);
 
@@ -118,7 +131,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
               type === 'really_overdue' ? "border-l-zinc-950 bg-zinc-50/50" : 
               type === 'common_overdue' ? "border-l-red-600" : 
               type === 'today' ? "border-l-amber-500" : 
-              type === 'closed' ? "border-l-zinc-300 opacity-80" : "border-l-green-500"
+              type === 'closed' ? "border-l-zinc-300 bg-zinc-50/20" : "border-l-green-500"
             )}>
               <CardContent className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -129,7 +142,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                   <Badge variant="outline" className={cn("text-[9px] font-black", 
                     type === 'really_overdue' ? "bg-zinc-900 text-white border-zinc-900" : 
                     type === 'common_overdue' ? "bg-red-50 text-red-600 border-red-200" : 
-                    type === 'closed' ? "bg-zinc-100 text-zinc-500 border-zinc-200" : "bg-zinc-50"
+                    type === 'closed' ? (item.isLate ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-zinc-100 text-zinc-500 border-zinc-200") : "bg-zinc-50"
                   )}>
                     {item[`col_${indices.nextDate}`]}
                   </Badge>
@@ -144,8 +157,10 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
                     <p className={cn("text-[9px] font-black uppercase", 
                       type === 'really_overdue' ? "text-red-600" : 
                       type === 'common_overdue' ? "text-red-500" : 
-                      type === 'closed' ? "text-zinc-400" : "text-zinc-400")}>
-                      {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : type === 'common_overdue' ? "ATENÇÃO ALTA" : type === 'closed' ? "ENCERRADO" : "NORMAL"}
+                      type === 'closed' ? (item.isLate ? "text-amber-600" : "text-zinc-400") : "text-zinc-400")}>
+                      {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : 
+                       type === 'common_overdue' ? "ATENÇÃO ALTA" : 
+                       type === 'closed' ? (item.isLate ? "AGENDAMENTO ATRASADO" : "ENCERRADO") : "NORMAL"}
                     </p>
                   </div>
                 </div>
@@ -180,7 +195,7 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
           </div>
           <div className="flex gap-3">
             <Badge variant="outline" className="bg-zinc-900 text-white border-zinc-900 px-3 py-1 font-black">{groups.reallyOverdue.length} CRÍTICO MÁXIMO</Badge>
-            <Badge variant="outline" className="bg-zinc-100 text-zinc-500 border-zinc-200 px-3 py-1 font-black">{groups.closedWithAppointment.length} ENCERRADOS COM DATA</Badge>
+            <Badge variant="outline" className="bg-zinc-100 text-zinc-500 border-zinc-200 px-3 py-1 font-black">{groups.closedWithAppointment.length} ENCERRADOS C/ DATA</Badge>
           </div>
         </div>
       </header>

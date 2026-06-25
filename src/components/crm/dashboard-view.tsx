@@ -55,9 +55,10 @@ export function DashboardView({ data, indices }: DashboardProps) {
       const hasDate = !!proxDate;
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
 
+      // Lógica V51 Elite: Encerrados com agendamento não poluem as métricas de atraso
       if (isClosed) {
         if (hasDate) closedWithDate++;
-        return; // Não contabiliza como ativo ou atrasado se estiver encerrado
+        return; 
       }
 
       active++;
@@ -90,7 +91,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
         <div className="flex gap-2">
            <Badge variant="outline" className="h-8 border-zinc-300 text-zinc-500 bg-zinc-50 flex items-center gap-2 px-3">
              <Archive className="h-3 w-3" />
-             <span className="font-black text-[10px]">{stats.closedWithDate} ENCERRADOS COM DATA</span>
+             <span className="font-black text-[10px]">{stats.closedWithDate} ENCERRADOS C/ DATA</span>
            </Badge>
            <Badge variant="outline" className="h-8 border-red-300 text-red-700 bg-red-50 flex items-center gap-2 px-3">
              <AlertCircle className="h-3 w-3" />
@@ -104,7 +105,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
           <Card className="border-l-4 border-l-black bg-zinc-900 text-white shadow-xl transition-transform hover:scale-[1.02]">
             <CardContent className="pt-6 flex justify-between items-center">
               <div>
-                <p className="text-[9px] font-black uppercase text-zinc-400 mb-1 tracking-widest">Realmente Crítico</p>
+                <p className="text-[8px] font-black uppercase text-zinc-400 mb-1 tracking-widest">Realmente Crítico</p>
                 <p className="text-4xl font-black text-white">{stats.reallyOverdue}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-red-600 flex items-center justify-center">
@@ -116,7 +117,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
           <Card className="border-l-4 border-l-red-600 bg-white shadow-md transition-transform hover:scale-[1.02]">
             <CardContent className="pt-6 flex justify-between items-center">
               <div>
-                <p className="text-[9px] font-black uppercase text-red-600 mb-1 tracking-widest">Crítico Comum</p>
+                <p className="text-[8px] font-black uppercase text-red-600 mb-1 tracking-widest">Crítico Comum</p>
                 <p className="text-4xl font-black text-red-600">{stats.commonOverdue}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center">
@@ -128,7 +129,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
           <Card className="border-l-4 border-l-amber-500 bg-white shadow-md transition-transform hover:scale-[1.02]">
             <CardContent className="pt-6 flex justify-between items-center">
               <div>
-                <p className="text-[9px] font-black uppercase text-amber-600 mb-1 tracking-widest">Prazos de Hoje</p>
+                <p className="text-[8px] font-black uppercase text-amber-600 mb-1 tracking-widest">Prazos de Hoje</p>
                 <p className="text-4xl font-black text-amber-500">{stats.today}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
@@ -140,7 +141,7 @@ export function DashboardView({ data, indices }: DashboardProps) {
           <Card className="border-l-4 border-l-blue-600 bg-white shadow-md transition-transform hover:scale-[1.02]">
             <CardContent className="pt-6 flex justify-between items-center">
               <div>
-                <p className="text-[9px] font-black uppercase text-blue-600 mb-1 tracking-widest">Carteira Ativa</p>
+                <p className="text-[8px] font-black uppercase text-blue-600 mb-1 tracking-widest">Carteira Ativa</p>
                 <p className="text-4xl font-black text-blue-600">{stats.active}</p>
               </div>
               <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">

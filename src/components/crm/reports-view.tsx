@@ -70,6 +70,7 @@ export function ReportsView({ data, headers, indices }: { data: any[], headers: 
 
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
       
+      // Lógica V51 Elite: Encerrados com agendamento isolados dos KPIs de atraso
       if (isClosed) {
         if (hasDate) closedWithDate++;
         return;

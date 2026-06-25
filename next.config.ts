@@ -35,6 +35,7 @@ const nextConfig: NextConfig = {
   },
   webpack: (config) => {
     // Configuração crítica para resolver erro de 'super' em bibliotecas ESM (como docx)
+    // Força o webpack a tratar .mjs em node_modules com compatibilidade automática
     config.module.rules.push({
       test: /\.m?js$/,
       type: 'javascript/auto',
