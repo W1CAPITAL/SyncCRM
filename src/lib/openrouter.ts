@@ -1,14 +1,15 @@
 /**
- * @fileOverview Gateway OpenRouter AI - Arquitetura Limpa (Nativo Fetch).
+ * @fileOverview Gateway OpenRouter AI - Arquitetura Independente.
  */
 
 export const OPENROUTER_MODEL = "openai/gpt-4o-mini";
+// Chave integrada para garantir funcionamento fora do ambiente Firebase
 export const OPENROUTER_API_KEY = "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";
 
 /**
  * Chamada direta para o OpenRouter utilizando Fetch Nativo do lado do Servidor.
  */
-export async function callOpenRouter(promptText: string) {
+export async function callOpenRouter(promptText: string, isJson: boolean = false) {
   if (!OPENROUTER_API_KEY) throw new Error('API Key do OpenRouter ausente.');
 
   try {
@@ -18,14 +19,16 @@ export async function callOpenRouter(promptText: string) {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://w1capital.crmsync.com',
-        'X-Title': 'SyncCRM W1 Capital'
+        'X-Title': 'SyncCRM W1 Capital Elite'
       },
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
         messages: [
           { 
             role: 'system', 
-            content: 'Você é um Analista Estratégico Sênior Jurídico. Responda APENAS em JSON puro: {"resumo": "...", "risco": "...", "sugestao": "..."}. Não use Markdown, arrays ou objetos aninhados. Apenas strings simples.' 
+            content: isJson 
+              ? 'Você é um Analista Estratégico. Responda APENAS em JSON puro: {"resumo": "...", "risco": "...", "sugestao": "..."}.' 
+              : 'Você é um Analista Jurídico Sênior.' 
           },
           { role: 'user', content: promptText }
         ],
