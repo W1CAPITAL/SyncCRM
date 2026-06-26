@@ -10,31 +10,35 @@ import { Label } from "@/components/ui/label";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
-  Database, LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
+  LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, ShieldCheck, Zap, MessageSquare,
-  Loader2
+  BrainCircuit, MessageSquare, FileText,
+  Loader2, Sparkles, UserCircle, Database, PanelLeft
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
-// Importações dinâmicas para isolar componentes AI e pesados
+// Importações dinâmicas para otimização de bundle e prevenção de erros de build
+const DocGeneratorView = dynamic(() => import("./doc-generator-view").then(mod => mod.DocGeneratorView), {
+  loading: () => <div className="flex-1 flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>,
+  ssr: false
+});
+
 const OmniReportView = dynamic(() => import("./omni-report-view").then(mod => mod.OmniReportView), {
-  ssr: false,
-  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>
+  ssr: false
 });
 
 const AiChatView = dynamic(() => import("./ai-chat").then(mod => mod.AiChatView), {
-  ssr: false,
-  loading: () => <div className="flex-1 flex items-center justify-center bg-zinc-50"><Loader2 className="h-8 w-8 animate-spin text-zinc-300" /></div>
+  ssr: false
 });
 
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
 import { ReportsView } from "./reports-view";
 import { DocumentsView } from "./documents-view";
-import { useToast } from "@/hooks/use-toast";
 
 export interface SheetIndices {
   lawyer: number;
@@ -55,13 +59,6 @@ const ALIASES = {
   suspended: ["suspenso", "suspensão", "suspensao", "paralisado", "pausado", "sobrestado", "alerta", "parado"],
   office: ["escritório", "escritorio", "empresa", "parceiro", "unidade", "filial", "office", "tribunal", "comarca"],
   phone: ["telefone", "celular", "whats", "whatsapp", "fone", "contato", "mobile", "phone"]
-};
-
-const TJ_MAP: Record<string, string> = {
-  "01": "AC", "02": "AL", "03": "AM", "04": "AP", "05": "BA", "06": "CE", "07": "DF",
-  "08": "ES", "09": "GO", "10": "MA", "11": "MT", "12": "MS", "13": "MG", "14": "PA",
-  "15": "PB", "16": "PR", "17": "PE", "18": "PI", "19": "RJ", "20": "RN", "21": "RS",
-  "22": "RO", "23": "RR", "24": "SC", "25": "SE", "26": "SP", "27": "TO",
 };
 
 const parseCSV = (csvText: string) => {
@@ -92,13 +89,11 @@ const parseCSV = (csvText: string) => {
 
 export function SheetExplorer() {
   const { toast } = useToast();
-
-  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat'>('settings');
+  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat' | 'docs_gen'>('dashboard');
   const [spreadsheetId, setSpreadsheetId] = useState("");
   const [aiEngine, setAiEngine] = useState<string>("openrouter");
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedState, setSelectedState] = useState<string>("all");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<any | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -109,7 +104,10 @@ export function SheetExplorer() {
     const savedHeaders = localStorage.getItem('last_headers');
     const savedEngine = localStorage.getItem('crm_ai_engine') || "openrouter";
     
-    if (savedId) setSpreadsheetId(savedId);
+    if (savedId) {
+      setSpreadsheetId(savedId);
+      handleMirrorSheets(savedId);
+    }
     if (savedHeaders) setHeaders(JSON.parse(savedHeaders));
     setAiEngine(savedEngine);
   }, []);
@@ -135,13 +133,14 @@ export function SheetExplorer() {
     };
   }, [headers]);
 
-  const handleMirrorSheets = async () => {
-    if (!spreadsheetId) return;
+  const handleMirrorSheets = async (targetId?: string) => {
+    const idToUse = targetId || spreadsheetId;
+    if (!idToUse) return;
     setIsSyncing(true);
     try {
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${idToUse}/export?format=csv`;
       const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error("Planilha inacessível.");
+      if (!res.ok) throw new Error("Acesso à planilha negado.");
       const csvText = await res.text();
       const values = parseCSV(csvText);
       const currentHeaders = values[0];
@@ -160,255 +159,240 @@ export function SheetExplorer() {
       });
 
       setLocalRecords(formattedRecords);
-      localStorage.setItem('last_spreadsheet_id', spreadsheetId);
+      localStorage.setItem('last_spreadsheet_id', idToUse);
       localStorage.setItem('last_headers', JSON.stringify(currentHeaders));
       
-      toast({ title: "Sincronia Total", description: `${formattedRecords.length} registros capturados via Borda.` });
-      setView('dashboard');
+      toast({ title: "Sincronia Elite", description: "Base de dados atualizada." });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro na Captura", description: e.message });
+      toast({ variant: "destructive", title: "Erro de Sincronia", description: e.message });
     } finally { setIsSyncing(false); }
   };
 
   const handleEngineChange = (val: string) => {
     setAiEngine(val);
     localStorage.setItem('crm_ai_engine', val);
-    toast({ title: "Gateway Atualizado", description: `Motor ${val.toUpperCase()} selecionado.` });
+    toast({ title: "Motor Atualizado", description: `Engine ${val.toUpperCase()} ativada.` });
   };
 
   const activeRecords = useMemo(() => {
-    return localRecords.map(r => ({ 
-      ...r.data, 
-      id: r.id, 
-      rowIndex: r.rowIndex,
-      _raw: r
-    })).filter(row => {
-      const vals = Object.values(row).join(" ").toLowerCase();
-      const matchesSearch = !searchTerm || vals.includes(searchTerm.toLowerCase());
-      const proc = String(row[`col_${indices.process}`] || "");
-      const match = proc.match(/\.8\.(\d{2})\./);
-      const state = match ? (TJ_MAP[match[1]] || "OUTROS") : "OUTROS";
-      return matchesSearch && (selectedState === "all" || state === selectedState);
-    });
-  }, [localRecords, searchTerm, selectedState, indices.process]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('crm_auth_status');
-    window.location.reload();
-  };
+    return localRecords.map(r => ({ ...r.data, id: r.id, rowIndex: r.rowIndex, _raw: r }))
+      .filter(row => {
+        if (!searchTerm) return true;
+        return Object.values(row).some(v => String(v).toLowerCase().includes(searchTerm.toLowerCase()));
+      });
+  }, [localRecords, searchTerm]);
 
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={true}>
-        <div className="flex h-screen w-full bg-white overflow-hidden">
-          <Sidebar collapsible="icon" className="border-r bg-zinc-950 text-white border-zinc-800">
-            <SidebarHeader className="border-b border-zinc-800 p-4">
+        <div className="flex h-screen w-full bg-slate-50/30">
+          <Sidebar collapsible="icon" className="border-r border-slate-200 bg-white">
+            <SidebarHeader className="p-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <Layers className="h-6 w-6 text-primary" />
-                <span className="font-black uppercase tracking-tighter group-data-[collapsible=icon]:hidden">W1 Capital</span>
+                <div className="bg-primary p-2 rounded-xl text-white shadow-lg shadow-primary/20">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <span className="font-bold text-slate-900 tracking-tight group-data-[collapsible=icon]:hidden">W1 Capital</span>
               </div>
             </SidebarHeader>
-            <SidebarContent className="p-2">
+            <SidebarContent className="p-3">
               <SidebarMenu>
                 {[
-                  { id: 'dashboard', icon: LayoutDashboard, label: 'Painel Central' },
-                  { id: 'operations', icon: FileSpreadsheet, label: 'Gestão Planilha' },
-                  { id: 'prazos', icon: Clock, label: 'Controle Prazos' },
+                  { id: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
+                  { id: 'operations', icon: FileSpreadsheet, label: 'Base de Dados' },
+                  { id: 'prazos', icon: Clock, label: 'Agenda Prazos' },
                   { id: 'omni', icon: BrainCircuit, label: 'OmniReport AI' },
                   { id: 'chat', icon: MessageSquare, label: 'Chat Estratégico' },
-                  { id: 'reports', icon: BarChart3, label: 'Analytics Hub' },
+                  { id: 'docs_gen', icon: FileText, label: 'Gerador Docs' },
+                  { id: 'reports', icon: BarChart3, label: 'Analytics BI' },
                   { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
                   { id: 'settings', icon: Settings, label: 'Configurações' },
                 ].map((item) => (
                   <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton isActive={view === item.id} onClick={() => setView(item.id as any)} className="text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
+                    <SidebarMenuButton 
+                      isActive={view === item.id} 
+                      onClick={() => setView(item.id as any)} 
+                      className={cn(
+                        "h-11 rounded-xl transition-all font-semibold uppercase text-[10px] tracking-wider",
+                        view === item.id 
+                          ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 hover:bg-slate-800" 
+                          : "text-slate-500 hover:bg-slate-100"
+                      )}
+                    >
                       <item.icon className="h-4 w-4" /> 
-                      <span className="group-data-[collapsible=icon]:hidden font-black uppercase text-[10px] tracking-widest">{item.label}</span>
+                      <span className="group-data-[collapsible=icon]:hidden ml-2">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarContent>
-            <SidebarFooter className="p-6 border-t border-zinc-900 group-data-[collapsible=icon]:hidden">
-              <div className="flex flex-col gap-1">
-                <p className="text-[10px] font-black text-zinc-100 uppercase tracking-tight">© Todos os direitos Reservados</p>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">W1 Capital</p>
-              </div>
+            <SidebarFooter className="p-4 border-t border-slate-100 group-data-[collapsible=icon]:hidden">
+               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/60 shadow-sm">
+                 <div className="h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                   <UserCircle className="h-5 w-5 text-slate-400" />
+                 </div>
+                 <div className="flex-1 overflow-hidden">
+                    <p className="text-[10px] font-bold text-slate-900 truncate">Analista Sênior</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">W1 Elite Access</p>
+                 </div>
+                 <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" onClick={() => {
+                   localStorage.removeItem('crm_auth_status');
+                   window.location.reload();
+                 }}><LogOut className="h-3.5 w-3.5" /></Button>
+               </div>
             </SidebarFooter>
           </Sidebar>
 
-          <SidebarInset className="flex flex-col flex-1 overflow-hidden">
-            <header className="flex h-14 items-center justify-between border-b px-6 bg-white shrink-0 shadow-sm">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger />
-                <Badge variant="outline" className="text-[10px] font-black uppercase border-zinc-300">SyncCRM Elite V42</Badge>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-black text-zinc-900 uppercase">Consultor Sênior</span>
-                <Button variant="ghost" size="sm" className="h-9 text-[10px] font-black uppercase" onClick={handleLogout}><LogOut className="h-3.5 w-3.5 mr-2" /> Sair</Button>
-              </div>
-            </header>
-
-            <main className="flex-1 relative bg-zinc-50 overflow-hidden flex flex-col">
+          <SidebarInset className="flex flex-col flex-1 overflow-hidden bg-white">
+            <main className="flex-1 relative overflow-hidden flex flex-col">
               {view === 'settings' ? (
-                <div className="h-full p-8 overflow-y-auto space-y-8">
-                  <div className="max-w-xl mx-auto space-y-8">
-                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl">
-                      <div className="space-y-2 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-md"><Database className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">Conexão Independente</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Integração Direta com Google Sheets</p>
-                      </div>
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-zinc-500">Google Spreadsheet ID</Label>
-                        <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="ID da URL da sua planilha" className="h-12 font-mono text-xs border-2" />
-                      </div>
-                      <Button className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 font-black text-white text-xs uppercase tracking-widest" onClick={handleMirrorSheets} disabled={isSyncing}>
-                        {isSyncing ? "CONECTANDO..." : "ATIVAR SYNC DE BORDA"}
-                      </Button>
+                <div className="h-full p-10 overflow-y-auto bg-slate-50/30">
+                  <div className="max-w-2xl mx-auto space-y-10">
+                    <header className="space-y-2">
+                      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Configurações de Protocolo</h1>
+                      <p className="text-sm text-slate-500 font-medium">Gestão de infraestrutura e orquestração de inteligência estratégica.</p>
+                    </header>
+
+                    <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/50 p-8 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg shadow-slate-900/10"><Database className="h-5 w-5" /></div>
+                          <div>
+                            <h3 className="font-bold text-slate-900">Conexão Google Sheets</h3>
+                            <p className="text-xs text-slate-500">Mapeamento direto de borda e persistência local.</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-8 space-y-6">
+                        <div className="space-y-3">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Spreadsheet ID</Label>
+                          <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="Cole o ID da sua planilha..." className="h-14 font-mono text-sm rounded-2xl border-slate-200 focus:ring-primary/20" />
+                        </div>
+                        <Button className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-900/10 transition-all active:scale-[0.98]" onClick={() => handleMirrorSheets()} disabled={isSyncing}>
+                          {isSyncing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                          {isSyncing ? "SINCROZINANDO..." : "SINCROZINAR BASE DE DADOS"}
+                        </Button>
+                      </CardContent>
                     </Card>
 
-                    <Card className="p-8 space-y-6 shadow-xl border-2 bg-white rounded-2xl border-zinc-100">
-                      <div className="space-y-2 text-center">
-                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white shadow-md"><Zap className="h-7 w-7" /></div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter">Motor Cognitivo</h2>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gateway de Inteligência AI V42</p>
-                      </div>
-                      
-                      <RadioGroup value={aiEngine} onValueChange={handleEngineChange} className="grid grid-cols-1 gap-4">
-                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
-                          <RadioGroupItem value="openrouter" id="engine-openrouter" />
-                          <Label htmlFor="engine-openrouter" className="flex-1 cursor-pointer">
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-xs uppercase">OpenRouter (GPT-4o Mini)</span>
-                              <Badge variant="outline" className="text-[8px] font-black border-zinc-300">NUVEM ELITE</Badge>
+                    <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/50 p-8 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20"><Sparkles className="h-5 w-5" /></div>
+                          <div>
+                            <h3 className="font-bold text-slate-900">Motor de Inteligência AI</h3>
+                            <p className="text-xs text-slate-500">Orquestrador de modelos cognitivos V28 Elite.</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-8">
+                        <RadioGroup value={aiEngine} onValueChange={handleEngineChange} className="grid grid-cols-1 gap-4">
+                          {[
+                            { id: 'openrouter', label: 'OpenRouter (GPT-4o)', desc: 'Motor de alta fidelidade para análise estrutural profunda.', badge: 'RECOMENDADO', color: 'bg-blue-50 text-blue-700' },
+                            { id: 'grok', label: 'Grok AI (xAI)', desc: 'Inteligência cirúrgica e contextualmente avançada.', badge: 'ELITE', color: 'bg-slate-900 text-white' },
+                            { id: 'local', label: 'Heurística Local', desc: 'Processamento imediato baseado em regras locais sem custo.', badge: 'RÁPIDO', color: 'bg-green-50 text-green-700' }
+                          ].map((eng) => (
+                            <div key={eng.id} className="relative">
+                              <RadioGroupItem value={eng.id} id={`eng-${eng.id}`} className="absolute right-6 top-1/2 -translate-y-1/2" />
+                              <Label htmlFor={`eng-${eng.id}`} className="block cursor-pointer p-6 rounded-2xl border border-slate-200 hover:border-primary/40 hover:bg-slate-50 transition-all">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-bold text-slate-900">{eng.label}</span>
+                                  <Badge className={cn("text-[8px] font-bold px-2 py-0.5 h-auto border-none", eng.color)}>{eng.badge}</Badge>
+                                </div>
+                                <p className="text-xs text-slate-400 font-medium">{eng.desc}</p>
+                              </Label>
                             </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Análise de alta fidelidade processada em borda.</p>
-                          </Label>
-                        </div>
-
-                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
-                          <RadioGroupItem value="grok" id="engine-grok" />
-                          <Label htmlFor="engine-grok" className="flex-1 cursor-pointer">
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-xs uppercase">Grok AI (xAI via Puter)</span>
-                              <Badge variant="outline" className="text-[8px] font-black border-zinc-900 text-white bg-zinc-900">X-AI ELITE</Badge>
-                            </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Inteligência local via navegador (User-Pays).</p>
-                          </Label>
-                        </div>
-
-                        <div className="flex items-center space-x-3 space-y-0 rounded-xl border-2 p-4 cursor-pointer hover:bg-zinc-50 transition-colors">
-                          <RadioGroupItem value="local" id="engine-local" />
-                          <Label htmlFor="engine-local" className="flex-1 cursor-pointer">
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-xs uppercase">Motor Local (Offline)</span>
-                              <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">REGRAS</Badge>
-                            </div>
-                            <p className="text-[10px] text-zinc-500 font-medium">Análise heurística imediata sem custo de API.</p>
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                    </Card>
-
-                    <Card className="p-8 space-y-4 shadow-lg border-2 bg-zinc-900 text-white rounded-2xl">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary rounded-lg text-white"><ShieldCheck className="h-5 w-5" /></div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Protocolo Edge</p>
-                          <p className="text-xs font-black uppercase">Arquitetura de Borda Cloudflare</p>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-zinc-400 italic leading-relaxed uppercase">
-                        Sistema purificado. Desacoplamento total do Firebase concluído. O SyncCRM agora opera via API Routes dinâmicas, garantindo 100% de compatibilidade fora do Studio.
-                      </p>
+                          ))}
+                        </RadioGroup>
+                      </CardContent>
                     </Card>
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex flex-col overflow-hidden">
-                  {view === 'operations' && (
-                    <div className="p-4 border-b flex items-center justify-between bg-zinc-100/50 gap-4 shrink-0">
-                      <div className="relative w-80">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                        <Input placeholder="Buscar na base..." className="pl-10 h-10 text-xs font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                      </div>
-                      <div className="flex gap-2">
-                         <Button variant="default" size="sm" className="h-10 text-[10px] font-black uppercase bg-zinc-900" onClick={handleMirrorSheets} disabled={isSyncing}>
-                           {isSyncing ? "ATUALIZANDO..." : "SINCRONIZAR AGORA"}
-                         </Button>
-                         <Badge className="bg-white border-2 border-zinc-200 text-zinc-900 h-10 px-4 flex items-center gap-2 font-black">
-                           {activeRecords.length} REGISTROS
-                         </Badge>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex-1 overflow-hidden">
-                    {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={() => {}} onAction={() => {}} /> :
-                     view === 'omni' ? <OmniReportView /> :
-                     view === 'chat' ? <AiChatView /> :
-                     view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} onReschedule={() => {}} /> :
-                     view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
-                     view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
-                     view === 'operations' ? (
-                       <div className="h-full flex flex-col bg-white">
-                         <div className="flex-1 overflow-auto">
-                           <Table className="w-max min-w-full border-separate border-spacing-0">
-                             <TableHeader className="bg-zinc-100 sticky top-0 z-20">
-                               <TableRow>
-                                 <TableHead className="w-14 text-center border-r border-b">MOD</TableHead>
-                                 {headers.map((h, i) => (
-                                   <TableHead key={`h-${i}`} className="text-[10px] font-black uppercase px-6 border-r border-b min-w-[180px] h-14 bg-zinc-100">{h}</TableHead>
-                                 ))}
-                               </TableRow>
-                             </TableHeader>
-                             <TableBody>
-                               {activeRecords.map((row) => (
-                                 <TableRow key={row.id} className="hover:bg-zinc-50 border-b">
-                                   <TableCell className="border-r border-b text-center">
-                                     <Button variant="ghost" size="icon" onClick={() => { setEditingRow(row._raw); setIsEditorOpen(true); }}><Edit2 className="h-3.5 w-3.5" /></Button>
-                                   </TableCell>
-                                   {headers.map((_, i) => (
-                                     <TableCell key={`c-${row.id}-${i}`} className="text-[11px] px-6 py-4 border-r border-b whitespace-nowrap">{row[`col_${i}`]}</TableCell>
-                                   ))}
-                                 </TableRow>
-                               ))}
-                             </TableBody>
-                           </Table>
-                         </div>
-                       </div>
-                     ) : null}
-                  </div>
+                <div className="h-full flex flex-col">
+                  {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={() => {}} onAction={() => {}} /> :
+                   view === 'omni' ? <OmniReportView /> :
+                   view === 'chat' ? <AiChatView /> :
+                   view === 'docs_gen' ? <DocGeneratorView /> :
+                   view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} onReschedule={() => {}} /> :
+                   view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
+                   view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
+                   view === 'operations' ? (
+                     <div className="h-full flex flex-col bg-slate-50/20">
+                        <header className="p-8 bg-white border-b flex items-center justify-between shadow-sm z-10">
+                          <div className="space-y-1">
+                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Base de Dados Integrada</h2>
+                            <p className="text-xs font-medium text-slate-500">Persistência local e espelhamento em tempo real.</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="relative w-80">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                              <Input placeholder="Filtrar registros..." className="pl-10 h-11 text-xs font-bold rounded-xl border-slate-200 bg-white shadow-sm focus:ring-primary/20" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                            <Button variant="outline" className="h-11 px-6 font-bold text-xs rounded-xl border-slate-200 shadow-sm hover:bg-slate-50" onClick={() => handleMirrorSheets()} disabled={isSyncing}>
+                              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                              {isSyncing ? "ATUALIZANDO..." : "ATUALIZAR"}
+                            </Button>
+                            <Badge className="bg-slate-900 text-white h-11 px-5 rounded-xl font-bold shadow-lg shadow-slate-900/10 flex items-center">{activeRecords.length} REGISTROS</Badge>
+                          </div>
+                        </header>
+                        <div className="flex-1 overflow-auto p-4">
+                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <Table className="w-max min-w-full">
+                              <TableHeader className="bg-slate-50/50 sticky top-0 z-10 border-b">
+                                <TableRow>
+                                  <TableHead className="w-16 border-r text-center bg-slate-50/50">#</TableHead>
+                                  {headers.map((h, i) => <TableHead key={i} className="text-[10px] font-bold uppercase text-slate-400 px-6 py-4 border-r min-w-[200px] tracking-widest">{h}</TableHead>)}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {activeRecords.map((row) => (
+                                  <TableRow key={row.id} className="hover:bg-slate-50/80 transition-colors border-b last:border-0 group">
+                                    <TableCell className="border-r text-center p-2">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingRow(row._raw); setIsEditorOpen(true); }}>
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TableCell>
+                                    {headers.map((_, i) => (
+                                      <TableCell key={i} className="text-[11px] font-medium px-6 py-4 border-r whitespace-nowrap text-slate-600">
+                                        {row[`col_${i}`]}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                     </div>
+                   ) : null}
                 </div>
               )}
             </main>
           </SidebarInset>
 
           <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-            <DialogContent className="max-w-3xl overflow-y-auto max-h-[90vh] bg-white border-2">
-              <DialogHeader className="border-b pb-6">
-                <DialogTitle className="font-black uppercase text-xl flex items-center gap-3">
-                  <div className="p-2 bg-zinc-900 rounded-lg text-white"><Edit2 className="h-5 w-5" /></div>
-                  Editor de Registro
-                </DialogTitle>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-none shadow-2xl">
+              <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
+                <DialogTitle className="text-xl font-bold flex items-center gap-3"><Edit2 className="h-5 w-5" /> Editor de Registro Estruturado</DialogTitle>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6 py-8">
+              <div className="flex-1 overflow-y-auto p-10 grid grid-cols-2 gap-8 bg-white">
                  {headers.map((h, i) => (
-                   <div key={`field-${i}`} className="space-y-2">
-                     <Label className="text-[10px] font-black uppercase text-zinc-400">{h}</Label>
+                   <div key={i} className="space-y-2">
+                     <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h}</Label>
                      <Input value={editingRow?.data?.[`col_${i}`] || ""} onChange={(e) => {
                           const val = e.target.value;
                           setEditingRow((p: any) => ({ ...p, data: { ...p.data, [`col_${i}`]: val } }));
-                        }} className="h-12 text-xs font-bold" />
+                        }} className="h-12 text-sm font-semibold rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-colors" />
                    </div>
                  ))}
               </div>
-              <DialogFooter className="sticky bottom-0 bg-white pt-6 border-t flex gap-4">
-                <Button variant="outline" className="h-14 font-black text-xs flex-1" onClick={() => setIsEditorOpen(false)}>DESCARTAR</Button>
-                <Button className="bg-zinc-900 text-white font-black h-14 flex-1" onClick={() => { 
+              <DialogFooter className="p-8 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-4">
+                <Button variant="ghost" className="h-14 font-bold px-10 text-slate-400 hover:text-slate-900" onClick={() => setIsEditorOpen(false)}>CANCELAR</Button>
+                <Button className="h-14 flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-900/10 transition-all active:scale-[0.98]" onClick={() => { 
                   if (editingRow) {
                     setLocalRecords(prev => prev.map(r => r.id === editingRow.id ? editingRow : r));
-                    toast({ title: "Registro Salvo", description: "Alteração persistida no cache local." });
+                    toast({ title: "Registro Salvo", description: "Alterações persistidas com sucesso na base local." });
                     setIsEditorOpen(false);
                   }
                 }}>SALVAR ALTERAÇÕES</Button>

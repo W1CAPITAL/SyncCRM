@@ -4,118 +4,73 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 221 40% 10%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 221 40% 10%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 221 40% 10%;
-    --primary: 221 80% 45%;
-    --primary-foreground: 210 25% 98%;
-    --secondary: 221 20% 90%;
-    --secondary-foreground: 221 80% 30%;
-    --muted: 210 20% 96%;
-    --muted-foreground: 221 20% 45%;
-    --accent: 190 100% 53%;
-    --accent-foreground: 221 80% 15%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 221 20% 90%;
-    --input: 221 20% 90%;
-    --ring: 221 80% 45%;
-    --radius: 0.5rem;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+    
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-body; }
+  body { 
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer components {
+  .bento-card {
+    @apply rounded-3xl border bg-card p-6 shadow-sm transition-all hover:shadow-md;
+  }
+  
+  .executive-title {
+    @apply text-2xl font-bold tracking-tight text-slate-900;
+  }
+  
+  .label-muted {
+    @apply text-[10px] font-bold uppercase tracking-widest text-slate-400;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full hover:bg-slate-300;
 }
 
 @media print {
-  @page {
-    size: A4 portrait;
-    margin: 10mm;
-  }
-
-  header, 
-  aside, 
-  nav,
-  button,
-  .no-print,
-  .print-hidden,
-  [data-sidebar="trigger"],
-  [role="tooltip"] {
-    display: none !important;
-  }
-
-  html, body {
-    height: auto !important;
-    overflow: visible !important;
-    background: white !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  main, 
-  #report-scroll-area, 
-  .flex-1 {
-    position: static !important;
-    display: block !important;
-    width: 100% !important;
-    height: auto !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-  }
-
-  .card {
-    page-break-inside: avoid;
-    margin-bottom: 15px !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: none !important;
-  }
-
-  h1, h2, h3, .text-xl, .text-lg {
-    color: black !important;
-    page-break-after: avoid;
-  }
-
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-}
-
-/* Custom Black Scrollbar - Mandatory V4 */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #000000;
-  border-radius: 5px;
-  border: 2px solid #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #222222;
-}
-
-/* Firefox Support */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #000000 #f1f1f1;
-}
-
-/* Force scrollability and black scrollbar on all overflow containers */
-.overflow-auto, .overflow-x-auto, .overflow-y-auto {
-  scrollbar-width: thin;
-  scrollbar-color: #000000 #f1f1f1;
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
 }

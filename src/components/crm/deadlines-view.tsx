@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { parse, isBefore, isToday, startOfDay, isValid, subDays } from "date-fns";
-import { MessageSquare, Clock, CheckCircle, AlertCircle, AlertTriangle, Archive } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle, AlertCircle, AlertTriangle, Archive, User, Calendar, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SheetIndices } from "./sheet-explorer";
@@ -20,7 +20,7 @@ interface DeadlinesViewProps {
 
 const INACTIVE_KEYWORDS = [
   "ENCERRADO", "ARQUIVADO", "BAIXADO", "FINALIZADO", "EXTINTO", 
-  "JULGADO", "CANCELADO", "INATIVO", "SUCUMBENCIA"
+  "JULGADO", "CANCELADO", "INATIVO"
 ];
 
 export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onReschedule }: DeadlinesViewProps) {
@@ -41,7 +41,6 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
       
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
 
-      // Lógica V51 Elite: Encerrados com agendamento são isolados para não poluir KPIs de atraso
       if (isClosed && hasAppointment) {
         try {
           const parts = proxStr.split(' ')[0].split(/[\/\-]/);
@@ -110,71 +109,79 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
   const renderGroup = (title: string, items: any[], type: 'really_overdue' | 'common_overdue' | 'today' | 'upcoming' | 'closed') => {
     if (items.length === 0) return null;
     return (
-      <div className="space-y-4 mb-10">
-        <div className="flex items-center justify-between border-b pb-2">
-          <h3 className={cn(
-            "text-sm font-black uppercase tracking-widest flex items-center gap-2",
-            type === 'really_overdue' ? "text-zinc-950" : 
-            type === 'common_overdue' ? "text-red-600" : 
-            type === 'today' ? "text-amber-600" : 
-            type === 'closed' ? "text-zinc-500" : "text-green-600"
+      <div className="space-y-6 mb-12">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <div className="flex items-center gap-3">
+            {type === 'really_overdue' && <div className="p-2 bg-red-100 rounded-lg text-red-600 shadow-sm"><AlertCircle className="h-5 w-5" /></div>}
+            {type === 'common_overdue' && <div className="p-2 bg-orange-100 rounded-lg text-orange-600 shadow-sm"><AlertTriangle className="h-5 w-5" /></div>}
+            {type === 'today' && <div className="p-2 bg-amber-100 rounded-lg text-amber-600 shadow-sm"><Calendar className="h-5 w-5" /></div>}
+            {type === 'upcoming' && <div className="p-2 bg-green-100 rounded-lg text-green-600 shadow-sm"><Clock className="h-5 w-5" /></div>}
+            {type === 'closed' && <div className="p-2 bg-slate-100 rounded-lg text-slate-600 shadow-sm"><Archive className="h-5 w-5" /></div>}
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-slate-900">{title}</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Segmentação V28 Strategy</p>
+            </div>
+          </div>
+          <Badge className={cn(
+            "h-8 px-4 rounded-xl font-black text-[10px] border-none shadow-sm",
+            type === 'really_overdue' ? "bg-red-600 text-white" : 
+            type === 'common_overdue' ? "bg-orange-500 text-white" : 
+            type === 'today' ? "bg-amber-500 text-white" : 
+            type === 'closed' ? "bg-slate-500 text-white" : "bg-green-600 text-white"
           )}>
-            {type === 'really_overdue' && <AlertCircle className="h-4 w-4 text-red-600" />}
-            {type === 'common_overdue' && <AlertTriangle className="h-4 w-4" />}
-            {type === 'closed' && <Archive className="h-4 w-4" />}
-            {title} <Badge variant="secondary" className="text-[10px] ml-2 font-black">{items.length}</Badge>
-          </h3>
+            {items.length} REGISTROS
+          </Badge>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
             <Card key={item.id} className={cn(
-              "shadow-sm border-l-4 transition-all hover:shadow-md bg-white",
-              type === 'really_overdue' ? "border-l-zinc-950 bg-zinc-50/50" : 
-              type === 'common_overdue' ? "border-l-red-600" : 
+              "rounded-2xl shadow-sm border-l-[6px] transition-all hover:shadow-xl hover:-translate-y-1 bg-white overflow-hidden group",
+              type === 'really_overdue' ? "border-l-red-600" : 
+              type === 'common_overdue' ? "border-l-orange-500" : 
               type === 'today' ? "border-l-amber-500" : 
-              type === 'closed' ? (item.isLate ? "border-l-amber-500 bg-amber-50/10" : "border-l-zinc-300 bg-zinc-50/20") : "border-l-green-500"
+              type === 'closed' ? (item.isLate ? "border-l-amber-500" : "border-l-slate-300") : "border-l-green-600"
             )}>
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="p-6 space-y-4">
                 <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-tighter">Cliente / Processo</p>
-                    <p className="text-[11px] font-bold text-zinc-900 truncate uppercase">{String(item[`col_${indices.client}`] || "N/A")}</p>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Cliente Identificado</p>
+                    <p className="text-[11px] font-bold text-slate-900 truncate uppercase leading-tight">{String(item[`col_${indices.client}`] || "N/A")}</p>
                   </div>
-                  <Badge variant="outline" className={cn("text-[9px] font-black", 
-                    type === 'really_overdue' ? "bg-zinc-900 text-white border-zinc-900" : 
-                    type === 'common_overdue' ? "bg-red-50 text-red-600 border-red-200" : 
-                    type === 'closed' ? (item.isLate ? "bg-amber-100 text-amber-700 border-amber-200" : "bg-zinc-100 text-zinc-500 border-zinc-200") : "bg-zinc-50"
+                  <div className={cn(
+                    "h-10 px-3 rounded-xl flex items-center justify-center font-black text-[10px] shadow-inner",
+                    type === 'really_overdue' ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600"
                   )}>
                     {item[`col_${indices.nextDate}`]}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-4 py-2 border-y border-zinc-100">
-                  <div className="flex-1">
-                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Status Atual</p>
-                    <p className="text-[10px] font-medium truncate uppercase">{item[`col_${indices.status}`] || "--"}</p>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Prioridade</p>
-                    <p className={cn("text-[9px] font-black uppercase", 
-                      type === 'really_overdue' ? "text-red-600" : 
-                      type === 'common_overdue' ? "text-red-500" : 
-                      type === 'closed' ? (item.isLate ? "text-amber-600" : "text-zinc-400") : "text-zinc-400")}>
-                      {type === 'really_overdue' ? "URGÊNCIA MÁXIMA" : 
-                       type === 'common_overdue' ? "ATENÇÃO ALTA" : 
-                       type === 'closed' ? (item.isLate ? "AGENDAMENTO PENDENTE" : "ENCERRADO") : "NORMAL"}
-                    </p>
                   </div>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="icon" className="h-7 w-7 rounded-full text-green-600 border-green-100" onClick={() => onWhatsApp(item)}>
-                    <MessageSquare className="h-3.5 w-3.5" />
+                
+                <div className="bg-slate-50/50 p-4 rounded-xl space-y-3 border border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ExternalLink className="h-3 w-3 text-slate-400" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Processo</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">{String(item[`col_${indices.process}`] || "---")}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-3 w-3 text-slate-400" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Status</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] font-bold h-5 px-2 py-0 border-slate-200 bg-white truncate max-w-[120px]">{item[`col_${indices.status}`] || "S/ STATUS"}</Badge>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl text-green-600 border-green-100 hover:bg-green-50 shadow-sm" onClick={() => onWhatsApp(item)}>
+                    <MessageSquare className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold flex-1" onClick={() => onReschedule(item)}>
-                    <Clock className="h-3.5 w-3.5 mr-2" /> REAGENDAR
+                  <Button variant="outline" size="sm" className="h-10 text-[10px] font-bold flex-1 rounded-xl shadow-sm border-slate-200 hover:bg-slate-50" onClick={() => onReschedule(item)}>
+                    <Clock className="h-4 w-4 mr-2" /> REAGENDAR
                   </Button>
                   {type !== 'closed' && (
-                    <Button variant="default" size="sm" className="h-7 text-[9px] font-bold flex-1 bg-zinc-900 text-white" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
-                      <CheckCircle className="h-3.5 w-3.5 mr-2" /> CONCLUIR
+                    <Button variant="default" size="sm" className="h-10 text-[10px] font-bold flex-1 rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800 transition-all active:scale-[0.98]" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
+                      <CheckCircle className="h-4 w-4 mr-2" /> CONCLUIR
                     </Button>
                   )}
                 </div>
@@ -187,28 +194,49 @@ export function DeadlinesView({ data, headers, indices, onEdit, onWhatsApp, onRe
   };
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50/30 overflow-hidden">
-      <header className="bg-white border-b p-6 shadow-sm shrink-0">
+    <div className="flex flex-col h-full bg-slate-50/30 overflow-hidden">
+      <header className="bg-white border-b p-8 shadow-sm shrink-0 z-10">
         <div className="flex items-center justify-between max-w-7xl mx-auto w-full">
           <div>
-            <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Controle de Prazos</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Segmentação Estratégica V51 | SLA 5 Dias</p>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Agenda Tática de Prazos</h2>
+            <p className="text-sm font-medium text-slate-500">Segmentação Estratégica W1 Capital | SLA 5 Dias</p>
           </div>
           <div className="flex gap-3">
-            <Badge variant="outline" className="bg-zinc-900 text-white border-zinc-900 px-3 py-1 font-black">{groups.reallyOverdue.length} CRÍTICO MÁXIMO</Badge>
-            <Badge variant="outline" className="bg-zinc-100 text-zinc-500 border-zinc-200 px-3 py-1 font-black">{groups.closedWithAppointment.length} ENCERRADOS C/ DATA</Badge>
+            <Badge className="bg-slate-900 text-white px-5 py-2 font-black rounded-xl shadow-lg shadow-slate-900/10 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-500" /> {groups.reallyOverdue.length + groups.commonOverdue.length} EM ATRASO
+            </Badge>
           </div>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-8" id="deadlines-scroll-area">
+      <div className="flex-1 overflow-y-auto p-10 scroll-black">
         <div className="max-w-7xl mx-auto w-full">
           {renderGroup("🚨 Urgência Máxima (Realmente Crítico)", groups.reallyOverdue, 'really_overdue')}
-          {renderGroup("🟠 Atrasos Recentes (Crítico Comum)", groups.commonOverdue, 'common_overdue')}
+          {renderGroup("🟠 Atrasos Recentes (Fase Amarela)", groups.commonOverdue, 'common_overdue')}
           {renderGroup("🟡 Compromissos de Hoje", groups.today, 'today')}
-          {renderGroup("🟢 Próximos Vencimentos", groups.upcoming, 'upcoming')}
-          {renderGroup("🔘 Encerrados com Agendamento", groups.closedWithAppointment, 'closed')}
+          {renderGroup("🟢 Próximos Vencimentos (Controle)", groups.upcoming, 'upcoming')}
+          {renderGroup("🔘 Arquivados com Agendamento", groups.closedWithAppointment, 'closed')}
         </div>
       </div>
     </div>
   );
+}
+
+function ShieldCheck(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  )
 }

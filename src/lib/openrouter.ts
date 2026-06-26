@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview Gateway de Inteligência V51 Elite - Independência Total.
  */
@@ -58,8 +57,8 @@ export async function callOpenRouter(promptText: string, isJson: boolean = false
           { 
             role: 'system', 
             content: isJson 
-              ? 'AJA COMO: Diretor de Operações Jurídicas Sênior. PROIBIDO USAR MARKDOWN. RESPONDA APENAS EM JSON PURO.' 
-              : 'Você é um Estrategista Jurídico Sênior e Diretor de Legal Ops do SyncCRM. PROIBIDO USAR MARKDOWN. Responda em texto limpo com parágrafos.' 
+              ? 'AJA COMO: Diretor de Operações Jurídicas Sênior da W1 Capital. PROIBIDO USAR MARKDOWN. RESPONDA APENAS EM JSON PURO. Priorize positividade e cordialidade.' 
+              : 'Você é um Estrategista Jurídico Sênior e Diretor de Legal Ops do SyncCRM. PROIBIDO USAR MARKDOWN. Responda em texto limpo com parágrafos, sendo cordial e humanizado.' 
           },
           { role: 'user', content: promptText }
         ],

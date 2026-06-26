@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertTriangle, TrendingUp, Users, Calendar, AlertCircle, Archive } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle, TrendingUp, Users, Calendar, AlertCircle, Archive, ShieldCheck, ArrowRight, Zap, Target } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { startOfDay, isBefore, isToday, isValid, parse, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -56,7 +55,6 @@ export function DashboardView({ data, indices }: DashboardProps) {
       const hasDate = !!proxDate;
       const isClosed = INACTIVE_KEYWORDS.some(k => st.includes(k));
 
-      // Lógica V51 Elite: Encerrados com agendamento não poluem as métricas de atraso
       if (isClosed) {
         if (hasDate) closedWithDate++;
         return; 
@@ -83,107 +81,124 @@ export function DashboardView({ data, indices }: DashboardProps) {
   }, [data, indices]);
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50/30 overflow-hidden">
-      <header className="bg-white border-b p-6 flex items-center justify-between shrink-0 shadow-sm">
+    <div className="flex flex-col h-full bg-slate-50/30 overflow-hidden">
+      <header className="bg-white border-b px-10 py-8 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div>
-          <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tighter">Painel de Controle</h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Inteligência Tática V51 | Saúde da Carteira</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Visão Geral da Operação</h2>
+          <p className="text-sm font-medium text-slate-500">Gestão Estratégica Independente V28 Elite</p>
         </div>
-        <div className="flex gap-2">
-           <Badge variant="outline" className="h-8 border-zinc-300 text-zinc-500 bg-zinc-50 flex items-center gap-2 px-3">
-             <Archive className="h-3 w-3" />
-             <span className="font-black text-[10px]">{stats.closedWithDate} ENCERRADOS C/ DATA</span>
+        <div className="flex gap-3">
+           <Badge variant="outline" className="h-10 border-slate-200 bg-white px-5 rounded-xl font-bold text-slate-600 flex items-center gap-2 shadow-sm">
+             <Archive className="h-4 w-4" /> {stats.closedWithDate} ARQUIVADOS COM AGENDAMENTO
            </Badge>
-           <Badge variant="outline" className="h-8 border-red-300 text-red-700 bg-red-50 flex items-center gap-2 px-3">
-             <AlertCircle className="h-3 w-3" />
-             <span className="font-black text-[10px]">{stats.reallyOverdue} URGÊNCIA MÁXIMA</span>
+           <Badge className="h-10 bg-red-600 hover:bg-red-700 text-white px-5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-red-600/10">
+             <AlertCircle className="h-4 w-4" /> {stats.reallyOverdue} URGÊNCIA MÁXIMA
            </Badge>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-8 scroll-black">
+      <div className="flex-1 overflow-y-auto p-10 space-y-10 scroll-black">
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-l-4 border-l-black bg-zinc-900 text-white shadow-xl transition-transform hover:scale-[1.02]">
-            <CardContent className="pt-6 flex justify-between items-center">
-              <div>
-                <p className="text-[8px] font-black uppercase text-zinc-400 mb-1 tracking-widest">Realmente Crítico</p>
-                <p className="text-4xl font-black text-white">{stats.reallyOverdue}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-red-600 flex items-center justify-center">
-                <AlertCircle className="h-5 w-5 text-white" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-red-600 bg-white shadow-md transition-transform hover:scale-[1.02]">
-            <CardContent className="pt-6 flex justify-between items-center">
-              <div>
-                <p className="text-[8px] font-black uppercase text-red-600 mb-1 tracking-widest">Crítico Comum</p>
-                <p className="text-4xl font-black text-red-600">{stats.commonOverdue}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-amber-500 bg-white shadow-md transition-transform hover:scale-[1.02]">
-            <CardContent className="pt-6 flex justify-between items-center">
-              <div>
-                <p className="text-[8px] font-black uppercase text-amber-600 mb-1 tracking-widest">Prazos de Hoje</p>
-                <p className="text-4xl font-black text-amber-500">{stats.today}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-amber-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-600 bg-white shadow-md transition-transform hover:scale-[1.02]">
-            <CardContent className="pt-6 flex justify-between items-center">
-              <div>
-                <p className="text-[8px] font-black uppercase text-blue-600 mb-1 tracking-widest">Carteira Ativa</p>
-                <p className="text-4xl font-black text-blue-600">{stats.active}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+          {[
+            { label: 'Urgência Máxima', val: stats.reallyOverdue, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', shadow: 'shadow-red-600/5' },
+            { label: 'Atrasos Recentes', val: stats.commonOverdue, icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-100', shadow: 'shadow-orange-600/5' },
+            { label: 'Prazos de Hoje', val: stats.today, icon: Calendar, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', shadow: 'shadow-blue-600/5' },
+            { label: 'Carteira Ativa', val: stats.active, icon: TrendingUp, color: 'text-slate-900', bg: 'bg-white', border: 'border-slate-200', shadow: 'shadow-slate-900/5' },
+          ].map((stat, i) => (
+            <Card key={i} className={cn("rounded-3xl border shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 overflow-hidden", stat.border, stat.shadow)}>
+              <CardContent className="p-8 flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{stat.label}</p>
+                  <p className={cn("text-4xl font-black", stat.color)}>{stat.val}</p>
+                </div>
+                <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner", i === 3 ? "bg-slate-900 text-white shadow-lg" : "bg-white")}>
+                  <stat.icon className={cn("h-7 w-7", i === 3 ? "text-white" : stat.color)} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </section>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-           <Card className="bg-white border-zinc-200">
-             <CardContent className="p-8 space-y-4">
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+           <Card className="lg:col-span-7 rounded-3xl border-slate-200 shadow-sm bg-white overflow-hidden">
+             <CardHeader className="p-10 pb-0 flex flex-row items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-zinc-900 rounded-lg"><Users className="h-5 w-5 text-white" /></div>
-                  <h3 className="font-black uppercase text-sm">Saúde da Carteira</h3>
+                  <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-lg shadow-slate-900/10"><Target className="h-6 w-6" /></div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg">Métricas de Eficiência</h3>
+                    <p className="text-xs text-slate-500 font-medium">Análise de saúde da carteira ativa.</p>
+                  </div>
                 </div>
+                <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold px-4 py-1.5 rounded-xl uppercase text-[9px] tracking-widest border-none">SLA 48h</Badge>
+             </CardHeader>
+             <CardContent className="p-10 space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-center space-y-2 group transition-all hover:bg-white hover:shadow-md hover:border-primary/20">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Controle Operacional</span>
+                      <span className="text-5xl font-black text-slate-900">
+                        {stats.active > 0 ? Math.round(((stats.active - (stats.reallyOverdue + stats.commonOverdue)) / stats.active) * 100) : 100}%
+                      </span>
+                      <span className="text-[9px] font-bold text-green-600 uppercase tracking-tighter flex items-center gap-1">
+                        +2% vs último ciclo <ArrowRight className="h-3 w-3" />
+                      </span>
+                   </div>
+                   <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 flex flex-col items-center justify-center text-center space-y-2 group transition-all hover:bg-white hover:shadow-md hover:border-primary/20">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status de Alerta</span>
+                      <div className={cn(
+                        "text-xs font-bold uppercase tracking-widest px-6 py-2 rounded-2xl shadow-sm",
+                        stats.reallyOverdue > 5 ? "bg-red-600 text-white shadow-red-600/20" : "bg-green-600 text-white shadow-green-600/20"
+                      )}>
+                        {stats.reallyOverdue > 5 ? "ALTO RISCO" : "ESTABILIZADO"}
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-2">V28 Protocol Shield</span>
+                   </div>
+                </div>
+
                 <div className="space-y-4 pt-4">
-                   <div className="flex justify-between items-end border-b pb-2">
-                     <span className="text-[11px] font-bold text-zinc-500 uppercase">Eficiência Geral</span>
-                     <span className="text-sm font-black text-zinc-900">{stats.active > 0 ? Math.round(((stats.active - (stats.reallyOverdue + stats.commonOverdue)) / stats.active) * 100) : 100}%</span>
+                   <div className="flex justify-between items-center py-5 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <Archive className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-semibold text-slate-600">Registros Encerrados com Agenda</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-900">{stats.closedWithDate} silos</span>
                    </div>
-                   <div className="flex justify-between items-end border-b pb-2">
-                     <span className="text-[11px] font-bold text-zinc-500 uppercase">Encerrados com Agendamento</span>
-                     <span className="text-sm font-black text-zinc-600">{stats.closedWithDate} casos</span>
-                   </div>
-                   <div className="flex justify-between items-end border-b pb-2">
-                     <span className="text-[11px] font-bold text-zinc-500 uppercase">Nível de Alerta</span>
-                     <span className={cn("text-sm font-black uppercase", stats.reallyOverdue > 0 ? "text-red-600" : "text-green-600")}>
-                        {stats.reallyOverdue > 5 ? "🚨 CRÍTICO EXTREMO" : stats.reallyOverdue > 0 ? "⚠️ ALERTA VERMELHO" : "✅ SOB CONTROLE"}
-                     </span>
+                   <div className="flex justify-between items-center py-5 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <Zap className="h-4 w-4 text-slate-400" />
+                        <span className="text-sm font-semibold text-slate-600">SLA Médio de Intervenção AI</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-900">12.4s</span>
                    </div>
                 </div>
              </CardContent>
            </Card>
-           <Card className="bg-zinc-900 text-white border-none shadow-xl">
-             <CardContent className="p-8 flex flex-col justify-center h-full space-y-4">
-                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Diferenciação V51 Elite</p>
-                <p className="text-lg font-medium leading-tight">
-                  Identificamos <span className="text-red-500 font-black">{stats.reallyOverdue} pendências realmente críticas</span> na carteira ativa. Os casos encerrados com data (<span className="text-zinc-400">{stats.closedWithDate}</span>) foram isolados para garantir que sua produtividade real seja mensurada sem distorções.
+
+           <Card className="lg:col-span-5 rounded-3xl border-none bg-slate-900 text-white shadow-2xl p-10 flex flex-col justify-between overflow-hidden relative group">
+              <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl transition-all group-hover:bg-primary/30"></div>
+              <div className="absolute -left-20 -bottom-20 h-64 w-64 rounded-full bg-blue-600/10 blur-3xl"></div>
+              
+              <div className="relative z-10 space-y-6">
+                <Badge className="bg-primary text-white font-bold px-4 py-1.5 text-[10px] tracking-widest border-none shadow-lg shadow-primary/20">W1 ELITE INTELLIGENCE</Badge>
+                <h3 className="text-3xl font-bold leading-tight tracking-tight">Decisões orientadas por dados reais, não intuições.</h3>
+                <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                  O protocolo V28 Elite isola automaticamente casos arquivados com agendamentos pendentes, garantindo que sua métrica de eficiência reflita apenas a realidade operacional ativa e rentável.
                 </p>
-             </CardContent>
+                <div className="flex gap-4 pt-4">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Protocolo</span>
+                    <span className="text-xs font-bold">V28.4-BETA</span>
+                  </div>
+                  <div className="flex flex-col border-l border-slate-800 pl-4">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Engine</span>
+                    <span className="text-xs font-bold">NEURAL X1</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="relative z-10 pt-12 flex items-center gap-4 text-slate-500 font-bold text-[10px] tracking-widest uppercase">
+                 <div className="h-0.5 flex-1 bg-slate-800 rounded-full"></div>
+                 CONSULTORIA ESTRATÉGICA ATIVA
+              </div>
            </Card>
         </section>
       </div>

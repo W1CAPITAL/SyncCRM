@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -8,6 +9,8 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Transpilação forçada para bibliotecas com classes ES6 modernas
+  transpilePackages: ['docx', 'pdfjs-dist'],
   images: {
     remotePatterns: [
       {
@@ -29,6 +32,19 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  webpack: (config) => {
+    // Regra de OURO para Cloudflare/Webpack 5: 
+    // Resolve o erro 'super keyword outside a method' em arquivos .mjs
+    config.module.rules.push({
+      test: /\.mjs$/,
+      include: /node_modules/,
+      type: 'javascript/auto',
+      resolve: {
+        fullySpecified: false,
+      },
+    });
+    return config;
   }
 };
 
