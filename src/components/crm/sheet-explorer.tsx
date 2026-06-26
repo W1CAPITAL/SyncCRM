@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,12 +17,12 @@ import {
   LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
   BarChart3, FileArchive, Settings, Search, Edit2, Layers,
   BrainCircuit, MessageSquare, FileText,
-  Loader2, Sparkles, UserCircle, Database, PanelLeft
+  Loader2, Sparkles, UserCircle, Database
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-// Importações dinâmicas para otimização de bundle e prevenção de erros de build
+// Importações dinâmicas para otimização de bundle
 const DocGeneratorView = dynamic(() => import("./doc-generator-view").then(mod => mod.DocGeneratorView), {
   loading: () => <div className="flex-1 flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>,
   ssr: false
@@ -168,6 +169,41 @@ export function SheetExplorer() {
     } finally { setIsSyncing(false); }
   };
 
+  const handleUpdateRecord = (rowId: string, data: any) => {
+    setLocalRecords(prev => prev.map(r => r.id === rowId ? { ...r, data, lastUpdated: new Date().toISOString() } : r));
+  };
+
+  const handleUpdateField = (rowId: string, colIdx: number, value: string) => {
+    setLocalRecords(prev => prev.map(r => {
+      if (r.id === rowId) {
+        const newData = { ...r.data, [`col_${colIdx}`]: value };
+        return { ...r, data: newData, lastUpdated: new Date().toISOString() };
+      }
+      return r;
+    }));
+    toast({ title: "Registro Atualizado", description: "As alterações foram salvas na base local." });
+  };
+
+  const handleOpenWhatsApp = (row: any) => {
+    const phone = String(row[`col_${indices.phone}`] || "").replace(/\D/g, "");
+    const name = String(row[`col_${indices.client}`] || "Cliente");
+    if (!phone) {
+      toast({ variant: "destructive", title: "Telefone Não Identificado", description: "Verifique os dados da planilha." });
+      return;
+    }
+    const message = encodeURIComponent(`Olá, ${name}! Estamos acompanhando o seu processo e gostaríamos de passar uma atualização.`);
+    window.open(`https://wa.me/55${phone}?text=${message}`, "_blank");
+  };
+
+  const handleOpenReschedule = (row: any) => {
+    // Abre o editor focado no registro para alteração da data
+    const fullRow = localRecords.find(r => r.id === (row.id || row.id_raw?.id));
+    if (fullRow) {
+      setEditingRow(fullRow);
+      setIsEditorOpen(true);
+    }
+  };
+
   const handleEngineChange = (val: string) => {
     setAiEngine(val);
     localStorage.setItem('crm_ai_engine', val);
@@ -175,7 +211,7 @@ export function SheetExplorer() {
   };
 
   const activeRecords = useMemo(() => {
-    return localRecords.map(r => ({ ...r.data, id: r.id, rowIndex: r.rowIndex, _raw: r }))
+    return localRecords.map(r => ({ ...r.data, id: r.id, rowIndex: r.rowIndex, id_raw: r }))
       .filter(row => {
         if (!searchTerm) return true;
         return Object.values(row).some(v => String(v).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -195,8 +231,8 @@ export function SheetExplorer() {
                 <span className="font-bold text-slate-900 tracking-tight group-data-[collapsible=icon]:hidden">W1 Capital</span>
               </div>
             </SidebarHeader>
-            <SidebarContent className="p-3">
-              <SidebarMenu>
+            <SidebarContent className="p-4 overflow-y-auto">
+              <SidebarMenu className="space-y-6">
                 {[
                   { id: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
                   { id: 'operations', icon: FileSpreadsheet, label: 'Base de Dados' },
@@ -208,20 +244,26 @@ export function SheetExplorer() {
                   { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
                   { id: 'settings', icon: Settings, label: 'Configurações' },
                 ].map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton 
-                      isActive={view === item.id} 
+                  <SidebarMenuItem key={item.id} className="nav-item-hover">
+                    <button 
                       onClick={() => setView(item.id as any)} 
                       className={cn(
-                        "h-11 rounded-xl transition-all font-semibold uppercase text-[10px] tracking-wider",
-                        view === item.id 
-                          ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 hover:bg-slate-800" 
-                          : "text-slate-500 hover:bg-slate-100"
+                        "flex flex-col items-center justify-center gap-3 w-full p-2 group transition-all",
+                        view === item.id && "nav-item-active"
                       )}
                     >
-                      <item.icon className="h-4 w-4" /> 
-                      <span className="group-data-[collapsible=icon]:hidden ml-2">{item.label}</span>
-                    </SidebarMenuButton>
+                      <div className="nav-icon-3d-wrapper">
+                        <div className="nav-icon-3d">
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-[9px] font-black uppercase tracking-[0.2em] transition-colors group-data-[collapsible=icon]:hidden",
+                        view === item.id ? "text-primary" : "text-slate-400"
+                      )}>
+                        {item.label}
+                      </span>
+                    </button>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -310,11 +352,11 @@ export function SheetExplorer() {
                 </div>
               ) : (
                 <div className="h-full flex flex-col">
-                  {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={() => {}} onAction={() => {}} /> :
+                  {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={handleOpenWhatsApp} onAction={(row, colIdx, val) => handleUpdateField(row.id, colIdx, val)} /> :
                    view === 'omni' ? <OmniReportView /> :
                    view === 'chat' ? <AiChatView /> :
                    view === 'docs_gen' ? <DocGeneratorView /> :
-                   view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} onReschedule={() => {}} /> :
+                   view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={(row, colIdx, val) => handleUpdateField(row.id, colIdx, val)} onWhatsApp={handleOpenWhatsApp} onReschedule={handleOpenReschedule} /> :
                    view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
                    view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
                    view === 'operations' ? (
@@ -349,7 +391,7 @@ export function SheetExplorer() {
                                 {activeRecords.map((row) => (
                                   <TableRow key={row.id} className="hover:bg-slate-50/80 transition-colors border-b last:border-0 group">
                                     <TableCell className="border-r text-center p-2">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingRow(row._raw); setIsEditorOpen(true); }}>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingRow(row.id_raw); setIsEditorOpen(true); }}>
                                         <Edit2 className="h-3.5 w-3.5" />
                                       </Button>
                                     </TableCell>
@@ -391,7 +433,7 @@ export function SheetExplorer() {
                 <Button variant="ghost" className="h-14 font-bold px-10 text-slate-400 hover:text-slate-900" onClick={() => setIsEditorOpen(false)}>CANCELAR</Button>
                 <Button className="h-14 flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-900/10 transition-all active:scale-[0.98]" onClick={() => { 
                   if (editingRow) {
-                    setLocalRecords(prev => prev.map(r => r.id === editingRow.id ? editingRow : r));
+                    handleUpdateRecord(editingRow.id, editingRow.data);
                     toast({ title: "Registro Salvo", description: "Alterações persistidas com sucesso na base local." });
                     setIsEditorOpen(false);
                   }

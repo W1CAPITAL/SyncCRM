@@ -45,16 +45,48 @@
 }
 
 @layer components {
+  /* EFEITO ÍCONE 3D ELITE */
+  .nav-icon-3d-wrapper {
+    @apply relative flex items-center justify-center transition-all duration-500;
+    perspective: 1000px;
+  }
+
+  .nav-icon-3d {
+    @apply relative block w-10 h-10 bg-white text-slate-600 flex items-center justify-center transition-all duration-700 shadow-[-10px_10px_5px_rgba(0,0,0,0.1)];
+    transform: rotateX(10deg) rotateY(-20deg) skewX(10deg);
+  }
+
+  .nav-icon-3d::before {
+    content: "";
+    @apply absolute top-[5px] -left-[10px] h-full w-[10px] bg-slate-300 transition-all duration-500;
+    transform: rotate(0deg) skewY(-45deg);
+  }
+
+  .nav-icon-3d::after {
+    content: "";
+    @apply absolute top-full -left-[5px] h-[10px] w-full bg-slate-200 transition-all duration-700;
+    transform: rotate(0deg) skewX(-45deg);
+  }
+
+  /* ESTADOS DE HOVER */
+  .nav-item-active .nav-icon-3d,
+  .nav-item-hover:hover .nav-icon-3d {
+    @apply bg-primary text-white shadow-[-25px_25px_25px_rgba(0,0,0,0.2)];
+    transform: rotateX(10deg) rotateY(-20deg) skewX(10deg) translate(10px, -10px);
+  }
+
+  .nav-item-active .nav-icon-3d::before,
+  .nav-item-hover:hover .nav-icon-3d::before {
+    @apply bg-blue-700;
+  }
+
+  .nav-item-active .nav-icon-3d::after,
+  .nav-item-hover:hover .nav-icon-3d::after {
+    @apply bg-blue-800;
+  }
+
   .bento-card {
     @apply rounded-3xl border bg-card p-6 shadow-sm transition-all hover:shadow-md;
-  }
-  
-  .executive-title {
-    @apply text-2xl font-bold tracking-tight text-slate-900;
-  }
-  
-  .label-muted {
-    @apply text-[10px] font-bold uppercase tracking-widest text-slate-400;
   }
 }
 
@@ -68,9 +100,4 @@
 }
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-200 rounded-full hover:bg-slate-300;
-}
-
-@media print {
-  .no-print { display: none !important; }
-  .print-only { display: block !important; }
 }
