@@ -9,40 +9,21 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Transpilação forçada para bibliotecas com classes ES6 modernas
+  // Transpilação obrigatória para bibliotecas que usam classes modernas em .mjs
   transpilePackages: ['docx', 'pdfjs-dist'],
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'picsum.photos' },
     ],
   },
   webpack: (config) => {
-    // Regra de OURO para Cloudflare/Webpack 5: 
-    // Resolve o erro 'super keyword outside a method' em arquivos .mjs
     config.module.rules.push({
       test: /\.mjs$/,
       include: /node_modules/,
       type: 'javascript/auto',
-      resolve: {
-        fullySpecified: false,
-      },
+      resolve: { fullySpecified: false },
     });
     return config;
   }

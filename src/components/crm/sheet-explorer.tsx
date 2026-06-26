@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -7,34 +6,19 @@ import { SidebarProvider, Sidebar, SidebarContent, SidebarHeader, SidebarFooter,
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
-  LayoutDashboard, Clock, LogOut, FileSpreadsheet, 
-  BarChart3, FileArchive, Settings, Search, Edit2, Layers,
-  BrainCircuit, MessageSquare, FileText,
-  Loader2, Sparkles, UserCircle, Database
+  LayoutDashboard, Clock, LogOut, BarChart3, Settings, Search, Layers,
+  MessageSquare, FileText, Loader2, UserCircle, Database, Zap, Briefcase, Cpu, UserCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { calculateV51Metrics } from "@/lib/metrics-engine";
 
-// Importações dinâmicas para otimização de bundle
-const DocGeneratorView = dynamic(() => import("./doc-generator-view").then(mod => mod.DocGeneratorView), {
-  loading: () => <div className="flex-1 flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>,
-  ssr: false
-});
-
-const OmniReportView = dynamic(() => import("./omni-report-view").then(mod => mod.OmniReportView), {
-  ssr: false
-});
-
-const AiChatView = dynamic(() => import("./ai-chat").then(mod => mod.AiChatView), {
-  ssr: false
-});
+const OmniReportView = dynamic(() => import("./omni-report-view").then(mod => mod.OmniReportView), { ssr: false });
+const AiChatView = dynamic(() => import("./ai-chat").then(mod => mod.AiChatView), { ssr: false });
+const AuditView = dynamic(() => import("./audit-view").then(mod => mod.AuditView), { ssr: false });
 
 import { DashboardView } from "./dashboard-view";
 import { DeadlinesView } from "./deadlines-view";
@@ -48,18 +32,21 @@ export interface SheetIndices {
   client: number;
   process: number;
   suspended: number;
-  nextDate: number;
+  nextDate: number; 
+  lastReturn: number; 
   phone: number;
 }
 
 const ALIASES = {
-  client: ["cliente", "nome", "parte", "consumidor", "titular", "requerente", "autor", "beneficiário"],
-  process: ["processo", "cnj", "numero processo", "nº processo", "proc", "número", "numero", "protocolo", "id"],
-  lawyer: ["advogado", "responsável", "responsavel", "analista", "líder", "operador", "atendente", "user", "colaborador"],
-  status: ["status", "situação", "situacao", "fase", "andamento", "estado", "etapa", "decisão"],
-  suspended: ["suspenso", "suspensão", "suspensao", "paralisado", "pausado", "sobrestado", "alerta", "parado"],
-  office: ["escritório", "escritorio", "empresa", "parceiro", "unidade", "filial", "office", "tribunal", "comarca"],
-  phone: ["telefone", "celular", "whats", "whatsapp", "fone", "contato", "mobile", "phone"]
+  client: ["cliente", "nome", "parte", "consumidor", "titular", "requerente", "autor"],
+  process: ["processo", "cnj", "numero processo", "proc"],
+  lawyer: ["advogado", "responsável", "responsavel", "analista", "atendente"],
+  status: ["status", "situação", "situacao", "fase"],
+  suspended: ["suspenso", "suspensão", "sobrestado"],
+  office: ["escritório", "unidade", "comarca", "tribunal"],
+  phone: ["telefone", "celular", "whats", "contato"],
+  nextDate: ["próximo", "vencimento", "prazo"],
+  lastReturn: ["retorno", "último retorno", "ultimo retorno"]
 };
 
 const parseCSV = (csvText: string) => {
@@ -88,40 +75,37 @@ const parseCSV = (csvText: string) => {
   return result;
 };
 
+function extractSheetId(input: string): string {
+  if (!input) return "";
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) return match[1];
+  return input.split('/')[0].split('?')[0].split('#')[0].trim();
+}
+
 export function SheetExplorer() {
   const { toast } = useToast();
-  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat' | 'docs_gen'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'operations' | 'prazos' | 'reports' | 'docs' | 'settings' | 'omni' | 'chat' | 'audit'>('dashboard');
   const [spreadsheetId, setSpreadsheetId] = useState("");
-  const [aiEngine, setAiEngine] = useState<string>("openrouter");
+  const [activeEngine, setActiveEngine] = useState<string>("openrouter");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingRow, setEditingRow] = useState<any | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [localRecords, setLocalRecords] = useState<any[]>([]);
 
   useEffect(() => {
     const savedId = localStorage.getItem('last_spreadsheet_id');
-    const savedHeaders = localStorage.getItem('last_headers');
     const savedEngine = localStorage.getItem('crm_ai_engine') || "openrouter";
-    
+    setActiveEngine(savedEngine);
     if (savedId) {
       setSpreadsheetId(savedId);
       handleMirrorSheets(savedId);
     }
-    if (savedHeaders) setHeaders(JSON.parse(savedHeaders));
-    setAiEngine(savedEngine);
   }, []);
 
   const indices = useMemo((): SheetIndices => {
-    if (!headers.length) return { lawyer: 0, office: 1, status: 2, client: 3, process: 5, suspended: 7, nextDate: 0, phone: -1 };
+    if (!headers.length) return { lawyer: 0, office: 1, status: 2, client: 3, process: 5, suspended: 7, nextDate: -1, lastReturn: -1, phone: -1 };
     const lowerHeaders = headers.map(h => String(h).toLowerCase().trim());
     const findIdx = (aliases: string[]) => lowerHeaders.findIndex(h => aliases.some(alias => h === alias || h.includes(alias)));
     
-    let dateIdx = lowerHeaders.findIndex(h => h === "próximo" || h === "prazo" || h === "vencimento");
-    if (dateIdx === -1) dateIdx = lowerHeaders.findIndex(h => h.includes("próximo") || h.includes("prazo") || h.includes("vencimento"));
-    if (dateIdx === -1) dateIdx = lowerHeaders.findIndex(h => h.includes("data"));
-
     return {
       lawyer: findIdx(ALIASES.lawyer),
       office: findIdx(ALIASES.office),
@@ -129,281 +113,221 @@ export function SheetExplorer() {
       client: findIdx(ALIASES.client),
       process: findIdx(ALIASES.process),
       suspended: findIdx(ALIASES.suspended),
-      nextDate: dateIdx !== -1 ? dateIdx : 0,
+      nextDate: findIdx(ALIASES.nextDate),
+      lastReturn: findIdx(ALIASES.lastReturn),
       phone: findIdx(ALIASES.phone)
     };
   }, [headers]);
 
   const handleMirrorSheets = async (targetId?: string) => {
-    const idToUse = targetId || spreadsheetId;
-    if (!idToUse) return;
+    const rawId = targetId || spreadsheetId;
+    const idToUse = extractSheetId(rawId);
+    
+    if (!idToUse) {
+       if (!targetId) toast({ variant: "destructive", title: "ID Ausente", description: "Informe a URL da planilha." });
+       return;
+    }
+
     setIsSyncing(true);
     try {
       const csvUrl = `https://docs.google.com/spreadsheets/d/${idToUse}/export?format=csv`;
-      const res = await fetch(csvUrl);
-      if (!res.ok) throw new Error("Acesso à planilha negado.");
+      const res = await fetch(csvUrl, { cache: 'no-store' });
+      
+      if (!res.ok) {
+        throw new Error("Erro de Acesso: Verifique se a planilha está compartilhada como 'Qualquer pessoa com o link pode ler'.");
+      }
+      
       const csvText = await res.text();
       const values = parseCSV(csvText);
-      const currentHeaders = values[0];
-      setHeaders(currentHeaders);
-      
-      const allRows = values.slice(1);
-      const formattedRecords = allRows.map((row, i) => {
-        const dataObj: any = {};
-        currentHeaders.forEach((h, idx) => dataObj[`col_${idx}`] = row[idx] || "");
-        return {
-          id: `rec_${i}`,
-          rowIndex: i,
-          data: dataObj,
-          lastUpdated: new Date().toISOString()
-        };
-      });
+      if (!values.length) throw new Error("Planilha vazia.");
 
+      setHeaders(values[0]);
+      const formattedRecords = values.slice(1).map((row, i) => {
+        const dataObj: any = {};
+        values[0].forEach((h, idx) => dataObj[`col_${idx}`] = row[idx] || "");
+        return { id: `rec_${i}`, rowIndex: i, data: dataObj };
+      });
+      
       setLocalRecords(formattedRecords);
       localStorage.setItem('last_spreadsheet_id', idToUse);
-      localStorage.setItem('last_headers', JSON.stringify(currentHeaders));
-      
-      toast({ title: "Sincronia Elite", description: "Base de dados atualizada." });
+      toast({ title: "Sincronização OK", description: "Dados extraídos da aba principal (CONTROLE)." });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Erro de Sincronia", description: e.message });
+      toast({ variant: "destructive", title: "Falha de Sincronia", description: e.message });
     } finally { setIsSyncing(false); }
   };
 
-  const handleUpdateRecord = (rowId: string, data: any) => {
-    setLocalRecords(prev => prev.map(r => r.id === rowId ? { ...r, data, lastUpdated: new Date().toISOString() } : r));
+  const updateEngine = (engine: string) => {
+    setActiveEngine(engine);
+    localStorage.setItem('crm_ai_engine', engine);
+    toast({ title: "Motor IA Atualizado", description: `Utilizando agora: ${engine.toUpperCase()}` });
   };
 
-  const handleUpdateField = (rowId: string, colIdx: number, value: string) => {
-    setLocalRecords(prev => prev.map(r => {
-      if (r.id === rowId) {
-        const newData = { ...r.data, [`col_${colIdx}`]: value };
-        return { ...r, data: newData, lastUpdated: new Date().toISOString() };
-      }
-      return r;
-    }));
-    toast({ title: "Registro Atualizado", description: "As alterações foram salvas na base local." });
-  };
-
-  const handleOpenWhatsApp = (row: any) => {
-    const phone = String(row[`col_${indices.phone}`] || "").replace(/\D/g, "");
-    const name = String(row[`col_${indices.client}`] || "Cliente");
-    if (!phone) {
-      toast({ variant: "destructive", title: "Telefone Não Identificado", description: "Verifique os dados da planilha." });
-      return;
-    }
-    const message = encodeURIComponent(`Olá, ${name}! Estamos acompanhando o seu processo e gostaríamos de passar uma atualização.`);
-    window.open(`https://wa.me/55${phone}?text=${message}`, "_blank");
-  };
-
-  const handleOpenReschedule = (row: any) => {
-    // Abre o editor focado no registro para alteração da data
-    const fullRow = localRecords.find(r => r.id === (row.id || row.id_raw?.id));
-    if (fullRow) {
-      setEditingRow(fullRow);
-      setIsEditorOpen(true);
-    }
-  };
-
-  const handleEngineChange = (val: string) => {
-    setAiEngine(val);
-    localStorage.setItem('crm_ai_engine', val);
-    toast({ title: "Motor Atualizado", description: `Engine ${val.toUpperCase()} ativada.` });
-  };
-
-  const activeRecords = useMemo(() => {
-    return localRecords.map(r => ({ ...r.data, id: r.id, rowIndex: r.rowIndex, id_raw: r }))
-      .filter(row => {
-        if (!searchTerm) return true;
-        return Object.values(row).some(v => String(v).toLowerCase().includes(searchTerm.toLowerCase()));
-      });
-  }, [localRecords, searchTerm]);
+  const metrics = useMemo(() => {
+    const rawData = localRecords.map(r => r.data);
+    return calculateV51Metrics(rawData, indices);
+  }, [localRecords, indices]);
 
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={true}>
-        <div className="flex h-screen w-full bg-slate-50/30">
-          <Sidebar collapsible="icon" className="border-r border-slate-200 bg-white">
-            <SidebarHeader className="p-6 border-b border-slate-100">
+        <div className="flex h-screen w-full bg-zinc-50 overflow-hidden font-body text-black">
+          <Sidebar className="bg-white text-black border-r border-zinc-200">
+            <SidebarHeader className="p-6 border-b border-zinc-100">
               <div className="flex items-center gap-3">
-                <div className="bg-primary p-2 rounded-xl text-white shadow-lg shadow-primary/20">
-                  <Layers className="h-5 w-5" />
+                <div className="bg-black p-2 rounded-lg shadow-lg">
+                  <Layers className="h-5 w-5 text-white" />
                 </div>
-                <span className="font-bold text-slate-900 tracking-tight group-data-[collapsible=icon]:hidden">W1 Capital</span>
+                <div>
+                  <span className="font-black text-black tracking-tighter uppercase text-sm block leading-none">SyncCRM</span>
+                  <span className="text-[9px] text-black font-bold uppercase tracking-widest mt-1">W1 Capital Elite</span>
+                </div>
               </div>
             </SidebarHeader>
-            <SidebarContent className="p-4 overflow-y-auto">
-              <SidebarMenu className="space-y-6">
+            <SidebarContent className="p-4">
+              <SidebarMenu className="space-y-1">
                 {[
-                  { id: 'dashboard', icon: LayoutDashboard, label: 'Visão Geral' },
-                  { id: 'operations', icon: FileSpreadsheet, label: 'Base de Dados' },
-                  { id: 'prazos', icon: Clock, label: 'Agenda Prazos' },
-                  { id: 'omni', icon: BrainCircuit, label: 'OmniReport AI' },
-                  { id: 'chat', icon: MessageSquare, label: 'Chat Estratégico' },
-                  { id: 'docs_gen', icon: FileText, label: 'Gerador Docs' },
-                  { id: 'reports', icon: BarChart3, label: 'Analytics BI' },
-                  { id: 'docs', icon: FileArchive, label: 'Arquivo Digital' },
-                  { id: 'settings', icon: Settings, label: 'Configurações' },
+                  { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+                  { id: 'operations', icon: Briefcase, label: 'Carteira' },
+                  { id: 'prazos', icon: Clock, label: 'Agenda' },
+                  { id: 'audit', icon: UserCheck, label: 'Auditoria' },
+                  { id: 'reports', icon: BarChart3, label: 'BI Equipe' },
+                  { id: 'chat', icon: MessageSquare, label: 'Chat IA' },
+                  { id: 'omni', icon: Zap, label: 'OmniReport' },
+                  { id: 'settings', icon: Settings, label: 'Ajustes' },
                 ].map((item) => (
-                  <SidebarMenuItem key={item.id} className="nav-item-hover">
+                  <SidebarMenuItem key={item.id}>
                     <button 
                       onClick={() => setView(item.id as any)} 
                       className={cn(
-                        "flex flex-col items-center justify-center gap-3 w-full p-2 group transition-all",
-                        view === item.id && "nav-item-active"
+                        "flex items-center gap-3 w-full px-4 py-3 rounded-lg transition-all text-xs font-black uppercase tracking-wide group",
+                        view === item.id ? "text-black bg-zinc-50" : "text-zinc-400 hover:text-black hover:bg-zinc-50"
                       )}
                     >
                       <div className="nav-icon-3d-wrapper">
-                        <div className="nav-icon-3d">
-                          <item.icon className="h-5 w-5" />
+                        <div className={cn("nav-icon-3d", view === item.id && "bg-black text-white shadow-xl shadow-black/20")}>
+                          <item.icon className="h-4 w-4" />
                         </div>
                       </div>
-                      <span className={cn(
-                        "text-[9px] font-black uppercase tracking-[0.2em] transition-colors group-data-[collapsible=icon]:hidden",
-                        view === item.id ? "text-primary" : "text-slate-400"
-                      )}>
-                        {item.label}
-                      </span>
+                      <span className="ml-2">{item.label}</span>
                     </button>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
             </SidebarContent>
-            <SidebarFooter className="p-4 border-t border-slate-100 group-data-[collapsible=icon]:hidden">
-               <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/60 shadow-sm">
-                 <div className="h-8 w-8 rounded-full bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                   <UserCircle className="h-5 w-5 text-slate-400" />
-                 </div>
-                 <div className="flex-1 overflow-hidden">
-                    <p className="text-[10px] font-bold text-slate-900 truncate">Analista Sênior</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">W1 Elite Access</p>
-                 </div>
-                 <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" onClick={() => {
-                   localStorage.removeItem('crm_auth_status');
-                   window.location.reload();
-                 }}><LogOut className="h-3.5 w-3.5" /></Button>
-               </div>
+            <SidebarFooter className="p-4 border-t border-zinc-100">
+              <button className="flex items-center gap-3 w-full p-2 text-black hover:text-red-600 transition-colors" onClick={() => { localStorage.removeItem('crm_auth_status'); window.location.reload(); }}>
+                <LogOut className="h-4 w-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Sair do Sistema</span>
+              </button>
             </SidebarFooter>
           </Sidebar>
 
-          <SidebarInset className="flex flex-col flex-1 overflow-hidden bg-white">
-            <main className="flex-1 relative overflow-hidden flex flex-col">
+          <SidebarInset className="flex flex-col flex-1 overflow-hidden">
+            <header className="h-16 bg-white border-b flex items-center justify-between px-8 shrink-0 shadow-sm z-50">
+              <div className="flex items-center bg-zinc-100 rounded-xl px-4 py-2 w-96 border border-zinc-200">
+                <Search size={14} className="text-black mr-2" />
+                <input placeholder="Buscar CNJ, cliente, telefone..." className="bg-transparent border-none outline-none text-xs font-black w-full text-black placeholder:text-zinc-400" />
+              </div>
+              <div className="flex items-center gap-6">
+                <Badge variant="outline" className="h-8 border-zinc-200 px-3 flex items-center gap-2 font-black text-[9px] text-black">
+                   <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                   MODO ONLINE: {activeEngine.toUpperCase()}
+                </Badge>
+                <div className="flex items-center gap-3 text-black font-black text-xs uppercase tracking-tighter">
+                  <div className="h-10 w-10 rounded-2xl bg-black text-white flex items-center justify-center shadow-lg"><UserCircle size={24} /></div>
+                  <div className="flex flex-col text-left">
+                    <span>Diretoria de Operações</span>
+                    <span className="text-[8px] text-zinc-500 font-black">Analista Sênior</span>
+                  </div>
+                </div>
+              </div>
+            </header>
+
+            <main className="flex-1 relative overflow-hidden flex flex-col bg-zinc-50">
               {view === 'settings' ? (
-                <div className="h-full p-10 overflow-y-auto bg-slate-50/30">
+                <div className="h-full p-10 overflow-y-auto">
                   <div className="max-w-2xl mx-auto space-y-10">
-                    <header className="space-y-2">
-                      <h1 className="text-3xl font-bold tracking-tight text-slate-900">Configurações de Protocolo</h1>
-                      <p className="text-sm text-slate-500 font-medium">Gestão de infraestrutura e orquestração de inteligência estratégica.</p>
-                    </header>
+                    <div>
+                      <h1 className="text-3xl font-black text-black uppercase tracking-tighter">Configurações Neural</h1>
+                      <p className="text-[10px] text-black font-bold uppercase tracking-widest mt-1">Gestão de Motores e Sincronização V53 Elite</p>
+                    </div>
 
-                    <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                      <CardHeader className="bg-slate-50/50 p-8 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg shadow-slate-900/10"><Database className="h-5 w-5" /></div>
+                    <div className="space-y-6">
+                      <section className="bg-white p-8 rounded-3xl border-2 border-zinc-100 shadow-sm space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-black text-white rounded-2xl shadow-lg"><Database className="h-5 w-5" /></div>
                           <div>
-                            <h3 className="font-bold text-slate-900">Conexão Google Sheets</h3>
-                            <p className="text-xs text-slate-500">Mapeamento direto de borda e persistência local.</p>
+                            <h3 className="text-sm font-black uppercase text-black">Vínculo de Dados</h3>
+                            <p className="text-[10px] text-zinc-500 font-bold uppercase">ID do Google Sheets (CONTROLE)</p>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-8 space-y-6">
-                        <div className="space-y-3">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Spreadsheet ID</Label>
-                          <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="Cole o ID da sua planilha..." className="h-14 font-mono text-sm rounded-2xl border-slate-200 focus:ring-primary/20" />
+                        <div className="space-y-4 pt-4 border-t">
+                          <Input value={spreadsheetId} onChange={(e) => setSpreadsheetId(e.target.value)} placeholder="Cole a URL ou ID da planilha..." className="h-14 font-black text-xs border-2 text-black" />
+                          <Button className="w-full h-14 bg-black text-white font-black hover:bg-zinc-900 shadow-xl transition-all" onClick={() => handleMirrorSheets()} disabled={isSyncing}>
+                            {isSyncing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Zap className="h-5 w-5 mr-2" />}
+                            SINCRONIZAR AGORA
+                          </Button>
                         </div>
-                        <Button className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-900/10 transition-all active:scale-[0.98]" onClick={() => handleMirrorSheets()} disabled={isSyncing}>
-                          {isSyncing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                          {isSyncing ? "SINCROZINANDO..." : "SINCROZINAR BASE DE DADOS"}
-                        </Button>
-                      </CardContent>
-                    </Card>
+                      </section>
 
-                    <Card className="rounded-3xl border-slate-200 shadow-sm overflow-hidden bg-white">
-                      <CardHeader className="bg-slate-50/50 p-8 border-b border-slate-100">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2.5 bg-primary rounded-xl text-white shadow-lg shadow-primary/20"><Sparkles className="h-5 w-5" /></div>
+                      <section className="bg-white p-8 rounded-3xl border-2 border-zinc-100 shadow-sm space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20"><Cpu className="h-5 w-5" /></div>
                           <div>
-                            <h3 className="font-bold text-slate-900">Motor de Inteligência AI</h3>
-                            <p className="text-xs text-slate-500">Orquestrador de modelos cognitivos V28 Elite.</p>
+                            <h3 className="text-sm font-black uppercase text-black">Motor Estratégico AI</h3>
+                            <p className="text-[10px] text-zinc-500 font-bold uppercase">Escolha o cérebro neural para análise</p>
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent className="p-8">
-                        <RadioGroup value={aiEngine} onValueChange={handleEngineChange} className="grid grid-cols-1 gap-4">
-                          {[
-                            { id: 'openrouter', label: 'OpenRouter (GPT-4o)', desc: 'Motor de alta fidelidade para análise estrutural profunda.', badge: 'RECOMENDADO', color: 'bg-blue-50 text-blue-700' },
-                            { id: 'grok', label: 'Grok AI (xAI)', desc: 'Inteligência cirúrgica e contextualmente avançada.', badge: 'ELITE', color: 'bg-slate-900 text-white' },
-                            { id: 'local', label: 'Heurística Local', desc: 'Processamento imediato baseado em regras locais sem custo.', badge: 'RÁPIDO', color: 'bg-green-50 text-green-700' }
-                          ].map((eng) => (
-                            <div key={eng.id} className="relative">
-                              <RadioGroupItem value={eng.id} id={`eng-${eng.id}`} className="absolute right-6 top-1/2 -translate-y-1/2" />
-                              <Label htmlFor={`eng-${eng.id}`} className="block cursor-pointer p-6 rounded-2xl border border-slate-200 hover:border-primary/40 hover:bg-slate-50 transition-all">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="font-bold text-slate-900">{eng.label}</span>
-                                  <Badge className={cn("text-[8px] font-bold px-2 py-0.5 h-auto border-none", eng.color)}>{eng.badge}</Badge>
-                                </div>
-                                <p className="text-xs text-slate-400 font-medium">{eng.desc}</p>
-                              </Label>
-                            </div>
-                          ))}
-                        </RadioGroup>
-                      </CardContent>
-                    </Card>
+                        <div className="space-y-4 pt-4 border-t">
+                          <Select value={activeEngine} onValueChange={updateEngine}>
+                            <SelectTrigger className="h-14 border-2 font-black text-[10px] uppercase text-black">
+                              <SelectValue placeholder="Selecione o motor..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="openrouter" className="text-xs font-black uppercase">OpenRouter (Neural V53)</SelectItem>
+                              <SelectItem value="grok" className="text-xs font-black uppercase">Grok xAI (Elite Realtime)</SelectItem>
+                              <SelectItem value="local" className="text-xs font-black uppercase">Local Engine (Offline)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </section>
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="h-full flex flex-col">
-                  {view === 'dashboard' ? <DashboardView data={activeRecords} headers={headers} indices={indices} onWhatsApp={handleOpenWhatsApp} onAction={(row, colIdx, val) => handleUpdateField(row.id, colIdx, val)} /> :
+                  {view === 'dashboard' ? <DashboardView metrics={metrics} /> :
+                   view === 'prazos' ? <DeadlinesView metrics={metrics} indices={indices} onEdit={() => {}} onWhatsApp={() => {}} /> :
+                   view === 'reports' ? <ReportsView metrics={metrics} /> :
                    view === 'omni' ? <OmniReportView /> :
                    view === 'chat' ? <AiChatView /> :
-                   view === 'docs_gen' ? <DocGeneratorView /> :
-                   view === 'prazos' ? <DeadlinesView data={activeRecords} headers={headers} indices={indices} onEdit={(row, colIdx, val) => handleUpdateField(row.id, colIdx, val)} onWhatsApp={handleOpenWhatsApp} onReschedule={handleOpenReschedule} /> :
-                   view === 'reports' ? <ReportsView data={activeRecords} headers={headers} indices={indices} /> :
-                   view === 'docs' ? <DocumentsView data={activeRecords} headers={headers} indices={indices} /> :
+                   view === 'audit' ? <AuditView metrics={metrics} /> :
+                   view === 'docs' ? <DocumentsView data={metrics.activePortfolio} headers={headers} indices={indices} /> :
                    view === 'operations' ? (
-                     <div className="h-full flex flex-col bg-slate-50/20">
-                        <header className="p-8 bg-white border-b flex items-center justify-between shadow-sm z-10">
-                          <div className="space-y-1">
-                            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Base de Dados Integrada</h2>
-                            <p className="text-xs font-medium text-slate-500">Persistência local e espelhamento em tempo real.</p>
+                     <div className="h-full flex flex-col overflow-hidden">
+                        <header className="p-8 bg-white border-b flex items-center justify-between shrink-0 shadow-sm">
+                          <div>
+                            <h2 className="text-xl font-black text-black uppercase tracking-tighter">Carteira Operacional</h2>
+                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Dados Sincronizados da Aba Principal</p>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <div className="relative w-80">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <Input placeholder="Filtrar registros..." className="pl-10 h-11 text-xs font-bold rounded-xl border-slate-200 bg-white shadow-sm focus:ring-primary/20" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            </div>
-                            <Button variant="outline" className="h-11 px-6 font-bold text-xs rounded-xl border-slate-200 shadow-sm hover:bg-slate-50" onClick={() => handleMirrorSheets()} disabled={isSyncing}>
-                              {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                              {isSyncing ? "ATUALIZANDO..." : "ATUALIZAR"}
-                            </Button>
-                            <Badge className="bg-slate-900 text-white h-11 px-5 rounded-xl font-bold shadow-lg shadow-slate-900/10 flex items-center">{activeRecords.length} REGISTROS</Badge>
-                          </div>
+                          <Badge className="bg-black text-white px-5 py-2 font-black rounded-xl shadow-lg">{metrics.activePortfolio.length} ATIVOS</Badge>
                         </header>
-                        <div className="flex-1 overflow-auto p-4">
-                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <Table className="w-max min-w-full">
-                              <TableHeader className="bg-slate-50/50 sticky top-0 z-10 border-b">
-                                <TableRow>
-                                  <TableHead className="w-16 border-r text-center bg-slate-50/50">#</TableHead>
-                                  {headers.map((h, i) => <TableHead key={i} className="text-[10px] font-bold uppercase text-slate-400 px-6 py-4 border-r min-w-[200px] tracking-widest">{h}</TableHead>)}
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {activeRecords.map((row) => (
-                                  <TableRow key={row.id} className="hover:bg-slate-50/80 transition-colors border-b last:border-0 group">
-                                    <TableCell className="border-r text-center p-2">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingRow(row.id_raw); setIsEditorOpen(true); }}>
-                                        <Edit2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </TableCell>
-                                    {headers.map((_, i) => (
-                                      <TableCell key={i} className="text-[11px] font-medium px-6 py-4 border-r whitespace-nowrap text-slate-600">
-                                        {row[`col_${i}`]}
-                                      </TableCell>
-                                    ))}
-                                  </TableRow>
+                        <div className="flex-1 overflow-auto p-8">
+                          <div className="bg-white rounded-3xl border-2 border-zinc-100 shadow-xl overflow-hidden">
+                            <table className="w-full text-left border-collapse min-w-max">
+                              <thead>
+                                <tr className="bg-zinc-50 border-b-2">
+                                  {headers.map((h, i) => <th key={i} className="p-5 text-[10px] font-black uppercase text-black border-r">{h}</th>)}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {localRecords.map((row) => (
+                                  <tr key={row.id} className="hover:bg-zinc-50 border-b text-xs font-black transition-colors">
+                                    {headers.map((_, i) => <td key={i} className="p-5 border-r truncate max-w-[250px] text-black">{row.data[`col_${i}`]}</td>)}
+                                  </tr>
                                 ))}
-                              </TableBody>
-                            </Table>
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                      </div>
@@ -412,35 +336,6 @@ export function SheetExplorer() {
               )}
             </main>
           </SidebarInset>
-
-          <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 rounded-3xl border-none shadow-2xl">
-              <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
-                <DialogTitle className="text-xl font-bold flex items-center gap-3"><Edit2 className="h-5 w-5" /> Editor de Registro Estruturado</DialogTitle>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-10 grid grid-cols-2 gap-8 bg-white">
-                 {headers.map((h, i) => (
-                   <div key={i} className="space-y-2">
-                     <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{h}</Label>
-                     <Input value={editingRow?.data?.[`col_${i}`] || ""} onChange={(e) => {
-                          const val = e.target.value;
-                          setEditingRow((p: any) => ({ ...p, data: { ...p.data, [`col_${i}`]: val } }));
-                        }} className="h-12 text-sm font-semibold rounded-xl border-slate-200 bg-slate-50 focus:bg-white transition-colors" />
-                   </div>
-                 ))}
-              </div>
-              <DialogFooter className="p-8 bg-slate-50 border-t border-slate-100 shrink-0 flex gap-4">
-                <Button variant="ghost" className="h-14 font-bold px-10 text-slate-400 hover:text-slate-900" onClick={() => setIsEditorOpen(false)}>CANCELAR</Button>
-                <Button className="h-14 flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl shadow-lg shadow-slate-900/10 transition-all active:scale-[0.98]" onClick={() => { 
-                  if (editingRow) {
-                    handleUpdateRecord(editingRow.id, editingRow.data);
-                    toast({ title: "Registro Salvo", description: "Alterações persistidas com sucesso na base local." });
-                    setIsEditorOpen(false);
-                  }
-                }}>SALVAR ALTERAÇÕES</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       </SidebarProvider>
     </TooltipProvider>
