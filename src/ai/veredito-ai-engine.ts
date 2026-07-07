@@ -1,20 +1,13 @@
-
 'use server';
 /**
- * @fileOverview Motor de Inteligência Veredito AI V51 Elite.
- * Focado em análise cirúrgica e histórico digital DataJud.
+ * @fileOverview Motor de Inteligência Lexis Predict V55 Elite.
  */
 
 import { callOpenRouter, safeJsonParse, getBankCNPJ } from '@/lib/openrouter';
 
-/**
- * Limpa artefatos de markdown e força conversão para string.
- * Blindagem contra erro 'replace is not a function'.
- */
 function cleanAiString(val: any): string {
   const str = String(val || "");
   if (!str || str === "undefined" || str === "null") return "";
-  
   return str.replace(/\*\*/g, '')
            .replace(/###/g, '')
            .replace(/##/g, '')
@@ -28,7 +21,6 @@ function cleanAiString(val: any): string {
 export async function processarVeredito(cnj: string, engine: string) {
   if (!cnj.trim()) return { success: false, error: "CNJ não informado." };
   
-  // Histórico expandido V51 Elite (Simulação DataJud completa)
   const historicoCompleto = [
     { data: "24/06/2024", evento: "Conclusos para Despacho - Urgente" },
     { data: "20/06/2024", evento: "Juntada de Petição de Manifestação sobre Laudo Pericial" },
@@ -39,19 +31,17 @@ export async function processarVeredito(cnj: string, engine: string) {
   ];
 
   try {
-    const promptText = `AJA COMO: Diretor de Operações Jurídicas (V51 Elite). 
+    const promptText = `AJA COMO: Diretor de Operações Jurídicas (Lexis Predict). 
     Analise o processo CNJ: ${cnj}. 
     Considere o Histórico Completo: ${JSON.stringify(historicoCompleto)}.
-    
-    INSTRUÇÃO: Proibido respostas genéricas. Dê uma decisão cirúrgica baseada nos fatos para HOJE.
     RETORNE APENAS JSON PURO: 
     {
-      "termometro": "Cenário crítico ou favorável em 1 frase.",
-      "traducao": "O que aconteceu tecnicamente em 1 parágrafo limpo.",
-      "alertas": "Riscos imediatos baseados no histórico.",
-      "plano_acao": "Ação decisiva para HOJE (Comando direto).",
-      "whatsapp": "Mensagem executiva profissional para o cliente.",
-      "followup": "Data e motivo estratégico."
+      "termometro": "Cenário crítico ou favorável.",
+      "traducao": "Resumo técnico limpo.",
+      "alertas": "Riscos imediatos.",
+      "plano_acao": "Ação decisiva para hoje.",
+      "whatsapp": "Mensagem curta para o cliente no WhatsApp.",
+      "followup": "Próxima revisão."
     }`;
 
     const aiResponse = await callOpenRouter(promptText, true);
@@ -72,53 +62,29 @@ export async function processarVeredito(cnj: string, engine: string) {
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-export async function processarProcuracao(dadosBrutos: string) {
-  if (!dadosBrutos.trim()) return { success: false, error: "Dados não informados." };
-
+export async function gerarRespostaWhatsApp(pergunta: string, contexto: any, tom: 'juridico' | 'comercial' | 'curto') {
   try {
-    const promptText = `AJA COMO: Diretor de Legal Ops (V51 Elite). 
-    Extraia EXCLUSIVAMENTE os dados de qualificação do cliente para uma procuração judicial.
-    IGNORE cláusulas contratuais. Foque no preâmbulo: Nome, Nacionalidade, Estado Civil, Profissão, RG, CPF, Endereço e E-mail.
-    Identifique o BANCO RÉU.
+    const promptText = `AJA COMO: Especialista em Atendimento Jurídico (Lexis Predict).
+    CLIENTE: ${contexto.cliente}
+    PROCESSO: ${contexto.processo}
+    FASE ATUAL: ${contexto.status}
+    PRÓXIMO PRAZO: ${contexto.prazo}
+    
+    PERGUNTA/MENSAGEM DO CLIENTE: "${pergunta}"
+    TOM DA RESPOSTA: ${tom.toUpperCase()}
 
-    TEXTO: "${dadosBrutos.substring(0, 15000)}"
+    INSTRUÇÃO: Gere uma resposta profissional, empática e baseada estritamente no contexto acima. 
+    Se o prazo estiver vencido, tranquilize o cliente dizendo que estamos atuando.
+    PROIBIDO USAR MARKDOWN. RESPONDA APENAS O TEXTO DA MENSAGEM.`;
 
-    RETORNE APENAS JSON:
-    {
-      "nome": "NOME COMPLETO",
-      "nacionalidade": "brasileiro(a)",
-      "estadoCivil": "estado civil",
-      "profissao": "profissão",
-      "rg": "número",
-      "cpf": "número",
-      "endereco": "endereço completo",
-      "email": "email",
-      "bancoReu": "NOME DO BANCO"
-    }`;
-
-    const aiResponse = await callOpenRouter(promptText, true);
-    const parsed = safeJsonParse(aiResponse);
-
-    if (!parsed) throw new Error("Falha na extração.");
-
-    const bancoDetectado = cleanAiString(parsed.bancoReu || "BANCO NÃO IDENTIFICADO");
-    const cnpjReal = getBankCNPJ(bancoDetectado);
-
-    return {
-      success: true,
-      dados: {
-        ...parsed,
-        nome: cleanAiString(parsed.nome),
-        bancoReu: bancoDetectado,
-        cnpjReu: cnpjReal
-      }
-    };
+    const aiResponse = await callOpenRouter(promptText, false);
+    return { success: true, resposta: cleanAiString(aiResponse) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
 export async function processarChat(mensagem: string, historico: any[], engine: string) {
   try {
-    const promptText = `AJA COMO: Diretor de Legal Ops Sênior (V51). 
+    const promptText = `AJA COMO: Diretor de Legal Ops Sênior (Lexis Predict). 
     Responda sem markdown. Mensagem: ${mensagem}`;
     const aiResponse = await callOpenRouter(promptText, false);
     return { success: true, resposta: cleanAiString(aiResponse) };

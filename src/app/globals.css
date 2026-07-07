@@ -10,19 +10,19 @@
     --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 0 0% 0%;
     --muted: 210 40% 96%;
-    --muted-foreground: 0 0% 0%; /* PRETO PARA MUTED TAMBÉM */
+    --muted-foreground: 0 0% 0%;
     --accent: 210 40% 96%;
     --accent-foreground: 0 0% 0%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 221 83% 53%;
+    --ring: 0 0% 0%;
     --radius: 1.25rem;
     
     --sidebar-background: 0 0% 100%;
@@ -32,7 +32,7 @@
     --sidebar-accent: 210 40% 96%;
     --sidebar-accent-foreground: 0 0% 0%;
     --sidebar-border: 214 32% 91%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 0 0% 0%;
   }
 }
 
@@ -40,8 +40,32 @@
   * { @apply border-border; }
   body { 
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    color: #000000 !important; /* FORÇA PRETO EM TUDO */
+    font-family: 'Inter', sans-serif;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+  }
+  
+  /* V80: FORÇA PRETO ABSOLUTO EM TUDO */
+  h1, h2, h3, h4, h5, h6, p, span, div, table, td, th, label, input, textarea, button, strong, b, i {
+    color: #000000 !important;
+  }
+
+  /* BLOQUEIA QUALQUER MODO ESCURO */
+  .bg-zinc-950, .bg-zinc-900, .bg-slate-900, .bg-zinc-800, .dark, [data-state=open] {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  .bg-black {
+    background-color: #000000 !important;
+  }
+  .bg-black *, .bg-zinc-950 * {
+    color: #ffffff !important;
+  }
+
+  .text-muted-foreground, .text-zinc-500, .text-slate-500 {
+    color: #000000 !important;
+    opacity: 0.7;
   }
 }
 
@@ -68,11 +92,14 @@
     transform: rotate(0deg) skewX(-45deg);
   }
 
-  .nav-icon-3d:hover, .nav-icon-3d.bg-primary {
-    background-color: hsl(221 83% 53%) !important;
-    color: white !important;
-    box-shadow: -15px 15px 25px rgba(37,99,235,0.2);
+  .nav-icon-3d:hover, .nav-icon-3d.active-nav {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    box-shadow: -15px 15px 25px rgba(0,0,0,0.2);
     transform: rotateX(15deg) rotateY(-25deg) skewX(5deg) translate(4px, -4px);
+  }
+  .nav-icon-3d:hover *, .nav-icon-3d.active-nav * {
+    color: #ffffff !important;
   }
 }
 

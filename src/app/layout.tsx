@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'SyncCRM | W1 Capital Intelligence',
-  description: 'Gestão Estratégica Independente.',
+  title: 'Lexis Predict | W1 Capital Intelligence',
+  description: 'Gestão Estratégica Independente e Inteligência Jurídica.',
 };
 
 export default function RootLayout({
