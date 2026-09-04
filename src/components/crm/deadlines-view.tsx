@@ -14,9 +14,10 @@ interface DeadlinesViewProps {
   indices: SheetIndices;
   onEdit: (rowObj: any, colIdx: number, value: string) => void;
   onWhatsApp: (row: any) => void;
+  onAtender?: (item: any) => void;
 }
 
-export function DeadlinesView({ metrics, indices, onEdit, onWhatsApp }: DeadlinesViewProps) {
+export function DeadlinesView({ metrics, indices, onEdit, onWhatsApp, onAtender }: DeadlinesViewProps) {
   const renderGroup = (title: string, items: any[], type: 'really' | 'common' | 'today' | 'onTime' | 'closed') => {
     if (items.length === 0) return null;
     return (
@@ -77,7 +78,7 @@ export function DeadlinesView({ metrics, indices, onEdit, onWhatsApp }: Deadline
                   <Button variant="outline" size="sm" className="h-10 text-[10px] font-bold flex-1 rounded-xl shadow-sm border-slate-200" onClick={() => onEdit(item, indices.status, "URGENTE")}>
                     <AlertCircle className="h-4 w-4 mr-2" /> CRÍTICO
                   </Button>
-                  <Button variant="default" size="sm" className="h-10 text-[10px] font-bold flex-1 rounded-xl bg-slate-900 text-white shadow-lg hover:bg-slate-800" onClick={() => onEdit(item, indices.status, "ENCERRADO")}>
+                  <Button variant="default" size="sm" className="h-10 text-[10px] font-bold flex-1 rounded-xl bg-slate-900 text-white shadow-lg hover:bg-slate-800" onClick={() => (onAtender ? onAtender(item) : onEdit(item, indices.status, "ENCERRADO"))}>
                     <CheckCircle className="h-4 w-4 mr-2" /> CONCLUIR
                   </Button>
                 </div>

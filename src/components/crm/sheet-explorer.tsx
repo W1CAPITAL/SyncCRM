@@ -40,12 +40,12 @@ export interface SheetIndices {
 
 const ALIASES = {
   client: ["cliente", "nome", "parte"],
-  process: ["processo", "cnj"],
-  lawyer: ["advogado", "responsável", "responsavel"],
-  status: ["status", "situação", "fase"],
+  process: ["processo", "cnj", "protocolo"],
+  lawyer: ["advogado", "responsável", "responsavel", "assistente"],
+  status: ["status", "situação", "situacao", "fase"],
   phone: ["telefone", "celular", "whats"],
-  nextDate: ["próximo", "vencimento", "prazo"],
-  lastReturn: ["retorno"]
+  nextDate: ["próximo", "proximo", "vencimento", "prazo", "proximo_retorno", "proximo retorno"],
+  lastReturn: ["retorno", "ultimo retorno", "último retorno", "ultimo_retorno"]
 };
 
 const parseCSV = (csvText: string) => {
@@ -106,10 +106,32 @@ export function SheetExplorer() {
 
   const [headers, setHeaders] = useState<string[]>([]);
   const [localRecords, setLocalRecords] = useState<any[]>([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [writeBusy, setWriteBusy] = useState(false);
   const [neuralInsight, setNeuralInsight] = useState<string>("");
   const [aiMetrics, setAiMetrics] = useState<any>(null);
 
   useEffect(() => {
+    fetch("/api/google/status")
+      .then((r) => r.json())
+      .then((j) => {
+        setGoogleConnected(!!j.connected);
+        setGoogleEmail(j.email || null);
+      })
+      .catch(() => {});
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("google") === "connected") {
+        setGoogleConnected(true);
+        toast({ title: "Google conectado", description: "Agora o CRM pode ler e gravar na planilha." });
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+      if (q.get("google") === "error") {
+        toast({ variant: "destructive", title: "Google OAuth", description: q.get("msg") || "erro" });
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    } catch { /* */ }
     const savedId = localStorage.getItem('last_spreadsheet_id');
     const savedEngine = localStorage.getItem('crm_ai_engine') || "openrouter";
     const savedNeural = localStorage.getItem('crm_neural_mode') === 'true';
@@ -168,33 +190,64 @@ export function SheetExplorer() {
       if (!idToUse) throw new Error("ID Inválido");
       updateStep(2, 'completed');
 
-      // Passo 3: Conexão
+      // Passo 3–5: Sheets API (OAuth) ou gviz público
       updateStep(3, 'loading');
-      await delay(1000);
-      const gvizUrl = `https://docs.google.com/spreadsheets/d/${idToUse}/gviz/tq?tqx=out:csv&gid=0&headers=1&t=${Date.now()}`;
-      const response = await fetch(gvizUrl, { method: 'GET', cache: 'no-store' });
-      if (!response.ok) throw new Error("Falha na API Google BI");
+      let values: string[][] = [];
+      let viaOauth = false;
+
+      if (googleConnected) {
+        const apiRes = await fetch("/api/google/sheets/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spreadsheetId: idToUse }),
+        });
+        const apiJson = await apiRes.json();
+        if (apiJson.ok && apiJson.values?.length) {
+          values = apiJson.values;
+          viaOauth = true;
+        } else if (apiJson.needAuth) {
+          setGoogleConnected(false);
+        }
+      }
+
+      if (!values.length) {
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${idToUse}/gviz/tq?tqx=out:csv&gid=0&headers=1&t=${Date.now()}`;
+        const response = await fetch(gvizUrl, { method: "GET", cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(
+            googleConnected
+              ? "Falha ao ler planilha (verifique se a conta tem acesso)."
+              : "Planilha privada: clique em Conectar Google para ler e editar."
+          );
+        }
+        values = parseCSV(await response.text());
+      }
+      if (!values.length) throw new Error("Planilha ilegível");
       updateStep(3, 'completed');
-
-      // Passo 4: Captura
       updateStep(4, 'loading');
-      const csvText = await response.text();
-      const values = parseCSV(csvText);
-      if (!values.length || values.length < 1) throw new Error("Planilha Ilegível");
-      await delay(800);
+      await delay(200);
       updateStep(4, 'completed');
-
-      // Passo 5: Estruturação
       updateStep(5, 'loading');
       setHeaders(values[0]);
       const records = values.slice(1).map((row, i) => {
         const dataObj: any = {};
-        values[0].forEach((h, idx) => dataObj[`col_${idx}`] = row[idx] || "");
+        values[0].forEach((h, idx) => {
+          dataObj[`col_${idx}`] = row[idx] || "";
+          if (h) dataObj[h] = row[idx] || "";
+        });
         return { id: `rec_${i}`, rowIndex: i, data: dataObj };
       });
       setLocalRecords(records);
-      await delay(700);
+      await delay(300);
       updateStep(5, 'completed');
+      if (!isAuto) {
+        toast({
+          title: viaOauth ? "Planilha via Google (leitura+escrita)" : "Leitura pública (gviz)",
+          description: viaOauth
+            ? `${records.length} linhas · pode editar pelo CRM`
+            : `${records.length} linhas · Conectar Google para gravar`,
+        });
+      }
 
       // Passo 6: Neural
       updateStep(6, 'loading');
@@ -243,6 +296,126 @@ export function SheetExplorer() {
       }
     } catch (e) {
       console.error("Falha no processamento neural.");
+    }
+  };
+
+  const resolveProto = (item: any) => {
+    const d = item?.data || item || {};
+    if (indices.process >= 0) return String(d[`col_${indices.process}`] || "").trim();
+    return String(d.Protocolo || d.protocolo || d.Processo || "").trim();
+  };
+
+  const handleEdit = async (item: any, colIndex: number, newValue: string) => {
+    const proto = resolveProto(item);
+    if (!proto) {
+      toast({ variant: "destructive", title: "Sem protocolo na linha" });
+      return;
+    }
+    if (!googleConnected) {
+      toast({
+        variant: "destructive",
+        title: "Conecte o Google",
+        description: "Sem OAuth o CRM não grava na planilha.",
+      });
+      return;
+    }
+    const idToUse = extractSheetId(spreadsheetId);
+    if (!idToUse) {
+      toast({ variant: "destructive", title: "Informe o link/ID da planilha" });
+      return;
+    }
+    setWriteBusy(true);
+    try {
+      setLocalRecords((prev) =>
+        prev.map((r) => {
+          if (r.id !== item.id && resolveProto(r) !== proto) return r;
+          const data = { ...r.data, [`col_${colIndex}`]: newValue };
+          if (headers[colIndex]) data[headers[colIndex]] = newValue;
+          return { ...r, data };
+        })
+      );
+      const headerName = headers[colIndex] || `col_${colIndex}`;
+      const fields: Record<string, string> = { [headerName]: newValue };
+      if (colIndex === indices.status) {
+        fields.Status = newValue;
+        fields.Situacao = newValue;
+      }
+      if (colIndex === indices.lastReturn) {
+        fields.Retorno = newValue;
+        fields.UltimoRetorno = newValue;
+      }
+      if (colIndex === indices.nextDate) {
+        fields.Proximo_Retorno = newValue;
+        fields.ProximoRetorno = newValue;
+      }
+      const res = await fetch("/api/google/sheets/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ spreadsheetId: idToUse, protocolo: proto, fields }),
+      });
+      const j = await res.json();
+      if (!j.ok) {
+        toast({ variant: "destructive", title: "Não gravou na planilha", description: j.error });
+      } else {
+        toast({ title: "Planilha atualizada", description: j.updated ? "Linha atualizada" : "Linha inserida" });
+      }
+    } finally {
+      setWriteBusy(false);
+    }
+  };
+
+  const handleAtender = async (item: any, status = "ATENDIDO") => {
+    const proto = resolveProto(item);
+    if (!proto) {
+      toast({ variant: "destructive", title: "Sem protocolo" });
+      return;
+    }
+    if (!googleConnected) {
+      toast({ variant: "destructive", title: "Conecte o Google para gravar" });
+      return;
+    }
+    const idToUse = extractSheetId(spreadsheetId);
+    const hoje = new Date().toISOString().slice(0, 10);
+    setWriteBusy(true);
+    try {
+      setLocalRecords((prev) =>
+        prev.map((r) => {
+          if (resolveProto(r) !== proto) return r;
+          const data = { ...r.data };
+          if (indices.lastReturn >= 0) {
+            data[`col_${indices.lastReturn}`] = hoje;
+            if (headers[indices.lastReturn]) data[headers[indices.lastReturn]] = hoje;
+          }
+          if (indices.status >= 0) {
+            data[`col_${indices.status}`] = status;
+            if (headers[indices.status]) data[headers[indices.status]] = status;
+          }
+          return { ...r, data };
+        })
+      );
+      const res = await fetch("/api/google/sheets/write", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spreadsheetId: idToUse,
+          protocolo: proto,
+          fields: {
+            Retorno: hoje,
+            UltimoRetorno: hoje,
+            Status: status,
+            Situacao: status,
+            AtendidoPor: googleEmail || "SyncCRM",
+          },
+        }),
+      });
+      const j = await res.json();
+      toast({
+        title: j.ok ? "Atendimento gravado na planilha" : "Falha ao gravar",
+        description: j.error || (j.updated ? "OK" : ""),
+        variant: j.ok ? "default" : "destructive",
+      });
+    } finally {
+      setWriteBusy(false);
     }
   };
 
@@ -405,7 +578,7 @@ export function SheetExplorer() {
               <div className="h-full flex flex-col">
                 {view === 'dashboard' ? <DashboardView metrics={metrics} /> :
                  view === 'whatsapp' ? <WhatsappView metrics={metrics} indices={indices} /> :
-                 view === 'prazos' ? <DeadlinesView metrics={metrics} indices={indices} onEdit={() => {}} onWhatsApp={() => setView('whatsapp')} /> :
+                 view === 'prazos' ? <DeadlinesView metrics={metrics} indices={indices} onEdit={(item, col, val) => handleEdit(item, col, val)} onWhatsApp={() => setView('whatsapp')} onAtender={(item) => handleAtender(item)} /> :
                  view === 'reports' ? <ReportsView metrics={metrics} /> :
                  view === 'omni' ? <OmniReportView /> :
                  view === 'chat' ? <AiChatView /> :
